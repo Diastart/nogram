@@ -32,15 +32,23 @@ func handleSession(response http.ResponseWriter, request *http.Request){
         return
     }
 
-    var existingToken string
-    err := db.QueryRow(`
-        SELECT Tokens.token 
-        FROM Users 
-        JOIN Tokens ON Users.id = Tokens.user_id 
-        WHERE Users.username = ?`, 
-        req.Username).Scan(&existingToken)
+    var userId int
+    err := db.QueryRow("SELECT id FROM Users WHERE username = ?", req.Username).Scan(&userId)
+
+    if err != nil && err != sql.ErrNoRows {
+        http.Error(response, "Database error", http.StatusInternalServerError)
+        return
+    }
 
     if err == nil {
+        var existingToken string
+        err = db.QueryRow("SELECT token FROM Tokens WHERE user_id = ?", userId).Scan(&existingToken)
+        
+        if err != nil {
+            http.Error(response, "Database error", http.StatusInternalServerError)
+            return
+        }
+        
         response.Header().Set("Content-Type", "application/json")
         json.NewEncoder(response).Encode(SessionResponse{
             Token: existingToken,

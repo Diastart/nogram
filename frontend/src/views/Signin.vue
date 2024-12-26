@@ -18,7 +18,7 @@ import { useUserInformation } from '@/stores/myStore';
                     const response = await axios.post('api/session', { username: this.userStore.username });
                     const token = response.data.token
                     console.log(token)
-                    localStorage.setItem('userId', token)
+                    localStorage.setItem('token', token)
                     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
                     this.$router.push('/chat');
                 }catch (error){console.log(error)}
@@ -26,3 +26,4 @@ import { useUserInformation } from '@/stores/myStore';
         }
     }
 </script>
+
