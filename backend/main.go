@@ -8,6 +8,7 @@ import (
     _ "github.com/go-sql-driver/mysql"
 	"encoding/json"
     "github.com/google/uuid"
+    "strings"
 )
 
 var db *sql.DB
@@ -18,6 +19,24 @@ type SessionRequest struct {
 
 type SessionResponse struct {
     Token string `json:"token"`
+}
+
+func getUserId(request *http.Request) (int, error) {
+    token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
+    if token == "" {
+        return 0, fmt.Errorf("no authorization token")
+    }
+
+    var userId int
+    err := db.QueryRow("SELECT id FROM Users WHERE token = ?", token).Scan(&userId)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return 0, fmt.Errorf("invalid token")
+        }
+        return 0, fmt.Errorf("database error: %v", err)
+    }
+
+    return userId, nil
 }
 
 func handleSession(response http.ResponseWriter, request *http.Request){
@@ -32,8 +51,8 @@ func handleSession(response http.ResponseWriter, request *http.Request){
         return
     }
 
-    var userId int
-    err := db.QueryRow("SELECT id FROM Users WHERE username = ?", req.Username).Scan(&userId)
+    var existingToken string
+    err := db.QueryRow("SELECT token FROM Users WHERE username = ?", req.Username).Scan(&existingToken)
 
     if err != nil && err != sql.ErrNoRows {
         http.Error(response, "Database error", http.StatusInternalServerError)
@@ -41,14 +60,6 @@ func handleSession(response http.ResponseWriter, request *http.Request){
     }
 
     if err == nil {
-        var existingToken string
-        err = db.QueryRow("SELECT token FROM Tokens WHERE user_id = ?", userId).Scan(&existingToken)
-        
-        if err != nil {
-            http.Error(response, "Database error", http.StatusInternalServerError)
-            return
-        }
-        
         response.Header().Set("Content-Type", "application/json")
         json.NewEncoder(response).Encode(SessionResponse{
             Token: existingToken,
@@ -56,43 +67,68 @@ func handleSession(response http.ResponseWriter, request *http.Request){
         return
     }
 
-	tx, err := db.Begin()
-    if err != nil {
-        http.Error(response, "Database error", http.StatusInternalServerError)
-        return
-    }
+    token := uuid.New().String()
 
-	result, err := tx.Exec("INSERT INTO Users (username) VALUES (?)", req.Username)
-	if err != nil {
-        tx.Rollback()
+    photoURL := fmt.Sprintf("https://api.dicebear.com/7.x/avataaars/svg?seed=%s", req.Username)
+
+    _, err = db.Exec("INSERT INTO Users (username, token, photo) VALUES (?, ?, ?)", req.Username, token, photoURL)
+    if err != nil {
         http.Error(response, "Error creating user", http.StatusInternalServerError)
         return
     }
 
-	user_id, err := result.LastInsertId()
-    if err != nil {
-        tx.Rollback()
-        http.Error(response, "Error getting user id", http.StatusInternalServerError)
-        return
-    }
-
-	token := uuid.New().String()
-	_, err = tx.Exec("INSERT INTO Tokens (token, user_id) VALUES (?, ?)", token, user_id)
-	if err != nil {
-        tx.Rollback()
-        http.Error(response, "Error creating token", http.StatusInternalServerError)
-        return
-    }
-
-	if err = tx.Commit(); err != nil {
-        http.Error(response, "Error committing transaction", http.StatusInternalServerError)
-        return
-    }
-
-	response.Header().Set("Content-Type", "application/json")
+    response.Header().Set("Content-Type", "application/json")
     json.NewEncoder(response).Encode(SessionResponse{
         Token: token,
     })
+}
+
+func handleDialogs(response http.ResponseWriter, request *http.Request) {
+    companion1Id, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+ 
+    companionUsername := request.URL.Query().Get("companion")
+    var companion2Id int
+    err = db.QueryRow("SELECT id FROM Users WHERE username = ?", companionUsername).Scan(&companion2Id)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            http.Error(response, "companion not found", http.StatusNotFound)
+            return
+        }
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+
+    var exists bool
+    err = db.QueryRow(`
+        SELECT EXISTS(
+            SELECT 1 FROM Dialogs 
+            WHERE (companion1Id = ? AND companion2Id = ?) 
+            OR (companion1Id = ? AND companion2Id = ?)
+        )`,
+        companion1Id, companion2Id,
+        companion2Id, companion1Id,
+    ).Scan(&exists)
+    if err != nil {
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+
+   if exists {
+       http.Error(response, "dialog already exists", http.StatusConflict)
+       return
+   }
+
+    _, err = db.Exec("INSERT INTO Dialogs (companion1Id, companion2Id) VALUES (?, ?)", companion1Id, companion2Id)
+    if err != nil {
+        http.Error(response, "error creating dialog", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusCreated)
 }
 
 func initDB(){
@@ -108,5 +144,6 @@ func main() {
 	initDB()
     defer db.Close()
 	http.HandleFunc("/api/session", handleSession)
+    http.HandleFunc("/api/dialogs", handleDialogs)
 	http.ListenAndServe(":8080", nil)
 }
