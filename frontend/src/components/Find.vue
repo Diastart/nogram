@@ -5,8 +5,13 @@
 
 <script>
 import axios from 'axios'
+import { useUserInformation } from '@/stores/myStore';
 export default {
     name : 'Find',
+    setup(){
+        const userStore = useUserInformation();
+        return {userStore};
+    },
     data(){
         return {
             companion: '',
@@ -15,9 +20,10 @@ export default {
     methods: {
         async findCompanion(){
             try {
-                const response = await axios.get('api/dialogs', {params: {companion: this.companion}});
+                await axios.get('api/dialogs', {params: {companion: this.companion}});
                 console.log(this.companion + ' is added successfully');
                 this.companion = '';
+                await this.userStore.fetchCompanions();
             }catch(error){console.log(error)}
         },
     }

@@ -3,15 +3,18 @@
     <p>-----------------------------------------------------------------</p>
     <Find/>
     <p>-----------------------------------------------------------------</p>
+    <Companions/>
 </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
 import Find from '../components/Find.vue';
+import Companions from '../components/Companions.vue'
 export default {
     name: 'Chat',
     components: {
         Find,
+        Companions,
     },
     setup(){
         const userStore = useUserInformation();
