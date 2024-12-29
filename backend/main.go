@@ -9,6 +9,8 @@ import (
 	"encoding/json"
     "github.com/google/uuid"
     "strings"
+    "time"
+    "strconv"
 )
 
 var db *sql.DB
@@ -25,6 +27,19 @@ type Companion struct {
     ID       int    `json:"id"`
     Username string `json:"username"`
 }
+
+type Message struct {
+    Id         int       `json:"id"`
+    Content    string    `json:"content"`
+    Time       string    `json:"time"`
+    SenderId   int       `json:"senderId"`
+    SenderName string    `json:"senderName"`
+}
+
+type MessageRequest struct {
+    ConversationId int    `json:"conversationId"`
+    Content        string `json:"content"`
+ }
 
 func getUserId(request *http.Request) (int, error) {
     token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
@@ -250,7 +265,94 @@ func handleConversations(response http.ResponseWriter, request *http.Request) {
         "conversationId": conversationId,
         "conversationPhoto": conversationPhoto,
     })
-} 
+}
+
+func handleMessages(response http.ResponseWriter, request *http.Request) {
+    switch request.Method {
+    case http.MethodGet:
+        handlegetMessages(response, request)
+    case http.MethodPost:
+        handlepostMessage(response, request)
+    default:
+        http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
+    }
+}
+
+func handlegetMessages(response http.ResponseWriter, request *http.Request) {
+    conversationIdStr := request.URL.Query().Get("conversationId")
+    conversationId, err := strconv.Atoi(conversationIdStr)
+    if err != nil {
+        http.Error(response, "invalid conversation id", http.StatusBadRequest)
+        return
+    }
+
+    rows, err := db.Query(`
+        SELECT id, sender_id, content, time
+        FROM Messages 
+        WHERE conversation_id = ?
+        ORDER BY time ASC`,
+        conversationId)
+    if err != nil {
+        log.Printf("Query error: %v", err)
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    messages := []Message{}
+    for rows.Next() {
+        var msg Message
+        var timeStr string
+        if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr); err != nil {
+            log.Printf("Scan error: %v", err)
+            http.Error(response, "error scanning messages", http.StatusInternalServerError)
+            return
+        }
+
+        t, err := time.Parse("2006-01-02 15:04:05", timeStr)
+        if err != nil {
+            log.Printf("Time parse error: %v", err)
+            http.Error(response, "error parsing time", http.StatusInternalServerError)
+            return
+        }
+        msg.Time = t.Format(time.RFC3339)
+
+        err = db.QueryRow("SELECT username FROM Users WHERE id = ?", msg.SenderId).Scan(&msg.SenderName)
+        if err != nil {
+            log.Printf("Username query error: %v", err)
+            http.Error(response, "error getting sender name", http.StatusInternalServerError)
+            return
+        } 
+        messages = append(messages, msg)
+    }
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(messages)
+}
+
+func handlepostMessage(response http.ResponseWriter, request *http.Request) {
+    senderId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    var messageRequest MessageRequest
+    if err := json.NewDecoder(request.Body).Decode(&messageRequest); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    _, err = db.Exec(`
+        INSERT INTO Messages (sender_id, conversation_id, content) 
+        VALUES (?, ?, ?)`,
+        senderId, messageRequest.ConversationId, messageRequest.Content)
+    if err != nil {
+        http.Error(response, "error creating message", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusCreated)
+}
 
 func initDB(){
 	var err error
@@ -268,5 +370,6 @@ func main() {
     http.HandleFunc("/api/dialogs", handleDialogs)
     http.HandleFunc("/api/companions", handleCompanions)
     http.HandleFunc("/api/conversations", handleConversations)
+    http.HandleFunc("/api/messages", handleMessages)
 	http.ListenAndServe(":8080", nil)
 }

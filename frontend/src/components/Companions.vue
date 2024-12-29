@@ -29,6 +29,7 @@ export default {
                 this.userStore.conversationName = companion.username
                 console.log('conversation id ' + this.userStore.conversationId)
                 console.log('url to conversation photo ' + this.userStore.conversationPhoto)
+                await this.userStore.fetchMessages();
             }catch(error){console.log(error)}
         },
     }
