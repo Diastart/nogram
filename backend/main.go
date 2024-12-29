@@ -19,7 +19,6 @@ type SessionRequest struct {
 
 type SessionResponse struct {
     Token string `json:"token"`
-    ID    int    `json:"id"`
 }
 
 type Companion struct {
@@ -58,8 +57,7 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
     }
 
     var existingToken string
-    var existingId int
-    err := db.QueryRow("SELECT token, id FROM Users WHERE username = ?", req.Username).Scan(&existingToken, &existingId)
+    err := db.QueryRow("SELECT token FROM Users WHERE username = ?", req.Username).Scan(&existingToken)
 
     if err != nil && err != sql.ErrNoRows {
         http.Error(response, "Database error", http.StatusInternalServerError)
@@ -70,7 +68,6 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
         response.Header().Set("Content-Type", "application/json")
         json.NewEncoder(response).Encode(SessionResponse{
             Token: existingToken,
-            ID:    existingId,
         })
         return
     }
@@ -78,22 +75,15 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
     token := uuid.New().String()
     photoURL := fmt.Sprintf("https://api.dicebear.com/7.x/avataaars/svg?seed=%s", req.Username)
 
-    result, err := db.Exec("INSERT INTO Users (username, token, photo) VALUES (?, ?, ?)", req.Username, token, photoURL)
+    _, err = db.Exec("INSERT INTO Users (username, token, photo) VALUES (?, ?, ?)", req.Username, token, photoURL)
     if err != nil {
         http.Error(response, "Error creating user", http.StatusInternalServerError)
-        return
-    }
-
-    newId, err := result.LastInsertId()
-    if err != nil {
-        http.Error(response, "Error getting user id", http.StatusInternalServerError)
         return
     }
 
     response.Header().Set("Content-Type", "application/json")
     json.NewEncoder(response).Encode(SessionResponse{
         Token: token,
-        ID:    int(newId),
     })
 }
 
@@ -214,6 +204,54 @@ func handleCompanions(response http.ResponseWriter, request *http.Request) {
     json.NewEncoder(response).Encode(companions)
 }
 
+func handleConversations(response http.ResponseWriter, request *http.Request) {
+    myId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    companionId := request.URL.Query().Get("companionId")
+
+    var dialogId int
+    err = db.QueryRow(`
+        SELECT id FROM Dialogs 
+        WHERE (companion1Id = ? AND companion2Id = ?) 
+        OR (companion1Id = ? AND companion2Id = ?)`,
+        myId, companionId,
+        companionId, myId,
+    ).Scan(&dialogId)
+
+    if err != nil {
+        if err == sql.ErrNoRows {
+            http.Error(response, "dialog not found", http.StatusNotFound)
+            return
+        }
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+
+    var conversationId int
+    err = db.QueryRow("SELECT id FROM Conversations WHERE dialog_id = ?", dialogId).Scan(&conversationId)
+    if err != nil {
+        http.Error(response, "error getting conversation", http.StatusInternalServerError)
+        return
+    }
+
+    var conversationPhoto string
+    err = db.QueryRow("SELECT photo FROM Users WHERE id = ?", companionId).Scan(&conversationPhoto)
+    if err != nil {
+        http.Error(response, "error getting photo", http.StatusInternalServerError)
+        return
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(map[string]interface{}{
+        "conversationId": conversationId,
+        "conversationPhoto": conversationPhoto,
+    })
+} 
+
 func initDB(){
 	var err error
 	db, err = sql.Open("mysql", "root:Abcdefg_1234@tcp(localhost:3306)/WASADB")
@@ -229,5 +267,6 @@ func main() {
 	http.HandleFunc("/api/session", handleSession)
     http.HandleFunc("/api/dialogs", handleDialogs)
     http.HandleFunc("/api/companions", handleCompanions)
+    http.HandleFunc("/api/conversations", handleConversations)
 	http.ListenAndServe(":8080", nil)
 }

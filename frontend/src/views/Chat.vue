@@ -4,17 +4,22 @@
     <Find/>
     <p>-----------------------------------------------------------------</p>
     <Companions/>
+    <p>-----------------------------------------------------------------</p>
+    <Conversation/><br>
+    
 </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
 import Find from '../components/Find.vue';
 import Companions from '../components/Companions.vue'
+import Conversation from '@/components/Conversation.vue';
 export default {
     name: 'Chat',
     components: {
         Find,
         Companions,
+        Conversation,
     },
     setup(){
         const userStore = useUserInformation();

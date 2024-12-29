@@ -5,6 +5,9 @@ export const useUserInformation = defineStore('userInformation',{
   state: () => ({
     username : '',
     companions: [],
+    conversationId: 0,
+    conversationPhoto: '',
+    conversationName: '',
   }),
   actions: {
     async fetchCompanions() {
@@ -14,6 +17,6 @@ export const useUserInformation = defineStore('userInformation',{
       } catch (error) {
         console.error('Error fetching companions:', error)
       }
-    }
+    },
   }
 })

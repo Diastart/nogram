@@ -1,12 +1,16 @@
 <template>
-    <ul>
-        <li v-for="companion in userStore.companions" :key="companion.id"> {{ companion.username }} </li>
-    </ul>
+    <h3>Companions:</h3>
+    <button 
+        v-for="companion in userStore.companions" 
+        @click="selectCompanion(companion)"
+        :key="companion.id">
+        {{ companion.username }}
+    </button>
 </template>
 
 <script>
-import axios from 'axios';
 import { useUserInformation } from '@/stores/myStore';
+import axios from 'axios'
 export default {
     name: 'Companions',
     setup(){
@@ -16,5 +20,17 @@ export default {
     mounted() {
         this.userStore.fetchCompanions()
     },
+    methods: {
+        async selectCompanion(companion){
+            try{
+                const response = await axios.get('api/conversations', {params:{companionId:companion.id}})
+                this.userStore.conversationId = response.data.conversationId
+                this.userStore.conversationPhoto = response.data.conversationPhoto
+                this.userStore.conversationName = companion.username
+                console.log('conversation id ' + this.userStore.conversationId)
+                console.log('url to conversation photo ' + this.userStore.conversationPhoto)
+            }catch(error){console.log(error)}
+        },
+    }
 }
 </script>
