@@ -1,5 +1,7 @@
 <template>
     <div class="messages-container">
+        <h3>Messages:</h3>
+        <p>-----------------------------------------------------------------</p>
         <div v-for="message in userStore.messages">
             <p>{{ message.senderName }} : {{ message.content }}</p>
             <p>{{ message.time }}</p>

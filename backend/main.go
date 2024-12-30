@@ -39,7 +39,18 @@ type Message struct {
 type MessageRequest struct {
     ConversationId int    `json:"conversationId"`
     Content        string `json:"content"`
- }
+}
+
+type GroupRequest struct {
+    GroupName    string `json:"groupName"`
+    GroupMembers []int  `json:"groupMembers"`
+}
+
+type GroupResponse struct {
+    ID        int    `json:"id"`
+    Groupname string `json:"groupname"`
+    Photo     string `json:"photo"`
+}
 
 func getUserId(request *http.Request) (int, error) {
     token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
@@ -354,6 +365,125 @@ func handlepostMessage(response http.ResponseWriter, request *http.Request) {
     response.WriteHeader(http.StatusCreated)
 }
 
+func handleGroups(response http.ResponseWriter, request *http.Request) {
+    switch request.Method {
+    case http.MethodPost:
+        handlepostGroups(response, request)
+    case http.MethodGet:
+        handlegetGroups(response, request)
+    default:
+        http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
+    }
+}
+
+func handlepostGroups(response http.ResponseWriter, request *http.Request) {
+    userId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    var groupRequest GroupRequest
+    if err := json.NewDecoder(request.Body).Decode(&groupRequest); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    photoURL := fmt.Sprintf("https://api.dicebear.com/7.x/identicon/svg?seed=%s", groupRequest.GroupName)
+
+    tx, err := db.Begin()
+    if err != nil {
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+
+    result, err := tx.Exec("INSERT INTO `Groups` (groupname, photo) VALUES (?, ?)", 
+        groupRequest.GroupName, photoURL)
+    if err != nil {
+        tx.Rollback()
+        http.Error(response, "error creating group", http.StatusInternalServerError)
+        return
+    }
+
+    groupId, err := result.LastInsertId()
+    if err != nil {
+        tx.Rollback()
+        http.Error(response, "error getting group id", http.StatusInternalServerError)
+        return
+    }
+
+    _, err = tx.Exec("INSERT INTO GroupsMembers (group_id, user_id) VALUES (?, ?)", groupId, userId)
+    if err != nil {
+        tx.Rollback()
+        http.Error(response, "error adding current member", http.StatusInternalServerError)
+        return
+    }
+
+    for _, memberId := range groupRequest.GroupMembers {
+        _, err = tx.Exec("INSERT INTO GroupsMembers (group_id, user_id) VALUES (?, ?)",
+            groupId, memberId)
+        if err != nil {
+            tx.Rollback()
+            http.Error(response, "error adding group members", http.StatusInternalServerError)
+            return
+        }
+    }
+
+    _, err = tx.Exec("INSERT INTO Conversations (group_id) VALUES (?)", groupId)
+    if err != nil {
+        tx.Rollback()
+        http.Error(response, "error creating conversation", http.StatusInternalServerError)
+        return
+    }
+
+    if err = tx.Commit(); err != nil {
+        http.Error(response, "error committing transaction", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusCreated)
+}
+
+func handlegetGroups(response http.ResponseWriter, request *http.Request) {
+    userId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    rows, err := db.Query("SELECT group_id FROM GroupsMembers WHERE user_id = ?", userId)
+    if err != nil {
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    groupIds := []int{}
+    for rows.Next() {
+        var groupId int
+        if err := rows.Scan(&groupId); err != nil {
+            http.Error(response, "error scanning group ids", http.StatusInternalServerError)
+            return
+        }
+        groupIds = append(groupIds, groupId)
+    }
+
+    groups := []GroupResponse{}
+    for _, id := range groupIds {
+        var group GroupResponse
+        err := db.QueryRow("SELECT id, groupname, photo FROM `Groups` WHERE id = ?", id).
+            Scan(&group.ID, &group.Groupname, &group.Photo)
+        if err != nil {
+            http.Error(response, "error getting group info", http.StatusInternalServerError)
+            return
+        }
+        groups = append(groups, group)
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(groups)
+}
+
 func initDB(){
 	var err error
 	db, err = sql.Open("mysql", "root:Abcdefg_1234@tcp(localhost:3306)/WASADB")
@@ -361,6 +491,34 @@ func initDB(){
 	err = db.Ping()
     if err != nil {log.Fatal(err)}
     fmt.Println("Successfully connected to Wasa database!")
+}
+
+func handleConversationsGroups(response http.ResponseWriter, request *http.Request) {
+    groupId := request.URL.Query().Get("groupId")
+
+    var conversationPhoto string
+    err := db.QueryRow("SELECT photo FROM `Groups` WHERE id = ?", groupId).Scan(&conversationPhoto)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            http.Error(response, "group not found", http.StatusNotFound)
+            return
+        }
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+
+    var conversationId int
+    err = db.QueryRow("SELECT id FROM Conversations WHERE group_id = ?", groupId).Scan(&conversationId)
+    if err != nil {
+        http.Error(response, "error getting conversation", http.StatusInternalServerError)
+        return
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(map[string]interface{}{
+        "conversationId": conversationId,
+        "conversationPhoto": conversationPhoto,
+    })
 }
 
 func main() {
@@ -371,5 +529,7 @@ func main() {
     http.HandleFunc("/api/companions", handleCompanions)
     http.HandleFunc("/api/conversations", handleConversations)
     http.HandleFunc("/api/messages", handleMessages)
+    http.HandleFunc("/api/groups", handleGroups)
+    http.HandleFunc("/api/conversations/groups", handleConversationsGroups)
 	http.ListenAndServe(":8080", nil)
 }

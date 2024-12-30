@@ -1,6 +1,6 @@
 <template>
-    <input v-model="companion" placeholder="Find & add companion" required><br>
-    <button @click="findCompanion">press</button>
+    <input v-model="companion" placeholder="Type companion name..." required>
+    <button @click="findCompanion">add</button>
 </template>
 
 <script>

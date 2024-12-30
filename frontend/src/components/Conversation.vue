@@ -9,7 +9,7 @@
                 >
             </div>
             <div class="chat-title">
-                chat with {{ userStore.conversationName }}
+                {{userStore.conversationName}}
             </div>
         </div>
     </div>

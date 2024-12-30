@@ -1,10 +1,10 @@
 <template>
-    <h3>companions ↓</h3>
+    <h3>groups ↓</h3>
     <button 
-        v-for="companion in userStore.companions" 
-        @click="selectCompanion(companion)"
-        :key="companion.id">
-        {{ companion.username }}
+        v-for="group in userStore.groups" 
+        @click="selectGroup(group)"
+        :key="group.id">
+        {{ group.groupname }}
     </button>
 </template>
 
@@ -12,26 +12,26 @@
 import { useUserInformation } from '@/stores/myStore';
 import axios from 'axios'
 export default {
-    name: 'Companions',
+    name: 'Groups',
     setup(){
         const userStore = useUserInformation();
         return {userStore};
     },
     mounted() {
-        this.userStore.fetchCompanions()
+        this.userStore.fetchGroups();
     },
     methods: {
-        async selectCompanion(companion){
+        async selectGroup(group) {
             try{
-                const response = await axios.get('api/conversations', {params:{companionId:companion.id}})
+                const response = await axios.get('api/conversations/groups', {params:{groupId:group.id}})
                 this.userStore.conversationId = response.data.conversationId
                 this.userStore.conversationPhoto = response.data.conversationPhoto
-                this.userStore.conversationName = companion.username
+                this.userStore.conversationName = group.groupname
                 console.log('conversation id ' + this.userStore.conversationId)
                 console.log('url to conversation photo ' + this.userStore.conversationPhoto)
                 await this.userStore.fetchMessages();
             }catch(error){console.log(error)}
-        },
+        }
     }
 }
 </script>
