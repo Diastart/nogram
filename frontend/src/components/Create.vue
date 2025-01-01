@@ -1,14 +1,37 @@
 <template>
-    <div class="container">
-        <input v-model="groupName" placeholder="Type group name..." required>
-        <p>choose people to add</p>
-        <div v-for="companion in userStore.companions" class="member-row">
-            <label>{{ companion.username }}</label>
-            <input v-model="groupMembers" type="checkbox" :value="companion.id">
+    <div class="create-group">
+        <div class="group-form">
+            <input 
+                v-model="groupName" 
+                placeholder="Group name..." 
+                class="group-input"
+                required
+            >
+            
+            <div class="members-section">
+                <h4 style="color: black;">Select Members</h4>
+                <div class="members-grid">
+                    <div v-for="companion in userStore.companions" 
+                         :key="companion.id" 
+                         class="member-item">
+                        <label style="color: black;" class="checkbox-label">
+                            <input 
+                                type="checkbox"
+                                v-model="groupMembers"
+                                :value="companion.id"
+                            >
+                            {{ companion.username }}
+                        </label>
+                    </div>
+                </div>
+            </div>
+ 
+            <button v-if="groupName" @click="createGroup" class="create-button">
+                Create Group
+            </button>
         </div>
-        <button @click="createGroup">create</button>
     </div>
-</template>
+ </template>
 
 <script>
 import axios from 'axios'
@@ -43,17 +66,61 @@ export default {
 </script>
 
 <style scoped>
-.container {
-   display: flex;
-   flex-direction: column;
-   align-items: center;
+.create-group {
+   padding: 20px;
+   max-width: 500px;
+   margin: 0 auto;
 }
 
-.member-row {
+.group-form {
    display: flex;
-   justify-content: space-between;
+   flex-direction: column;
+   gap: 20px;
+}
+
+.group-input {
+   padding: 12px;
+   border: 1px solid #ddd;
+   border-radius: 8px;
+   font-size: 16px;
+}
+
+.members-section {
+   background-color: #f5f5f5;
+   padding: 20px;
+   border-radius: 8px;
+}
+
+.members-grid {
+   display: grid;
+   gap: 12px;
+   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.member-item {
+   background-color: white;
+   padding: 10px;
+   border-radius: 6px;
+}
+
+.checkbox-label {
+   display: flex;
    align-items: center;
-   margin: 5px 0;
-   width: 100px;
+   gap: 8px;
+   cursor: pointer;
+}
+
+.create-button {
+   padding: 12px 24px;
+   background-color: #09BC8A;
+   color: white;
+   border: none;
+   border-radius: 8px;
+   cursor: pointer;
+   transition: transform 0.2s;
+}
+
+.create-button:hover {
+   transform: scale(1.02);
 }
 </style>

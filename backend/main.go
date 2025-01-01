@@ -52,6 +52,12 @@ type GroupResponse struct {
     Photo     string `json:"photo"`
 }
 
+type RedirectRequest struct {
+    MessageId      int `json:"messageId"`
+    ConversationId int `json:"conversationId"`
+    SenderName string  `json:"senderName"`
+}
+
 func getUserId(request *http.Request) (int, error) {
     token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
     if token == "" {
@@ -283,7 +289,11 @@ func handleMessages(response http.ResponseWriter, request *http.Request) {
     case http.MethodGet:
         handlegetMessages(response, request)
     case http.MethodPost:
-        handlepostMessage(response, request)
+        handlepostMessages(response, request)
+    case http.MethodPut:
+        handleputMessages(response, request)
+    case http.MethodDelete:
+        handledeleteMessages(response, request)
     default:
         http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
     }
@@ -340,7 +350,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
     json.NewEncoder(response).Encode(messages)
 }
 
-func handlepostMessage(response http.ResponseWriter, request *http.Request) {
+func handlepostMessages(response http.ResponseWriter, request *http.Request) {
     senderId, err := getUserId(request)
     if err != nil {
         http.Error(response, err.Error(), http.StatusUnauthorized)
@@ -363,6 +373,49 @@ func handlepostMessage(response http.ResponseWriter, request *http.Request) {
     }
 
     response.WriteHeader(http.StatusCreated)
+}
+
+func handleputMessages(response http.ResponseWriter, request *http.Request) {
+    myId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    var messageRequest RedirectRequest
+    if err := json.NewDecoder(request.Body).Decode(&messageRequest); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    var originalMessage Message 
+    err = db.QueryRow("SELECT content FROM Messages WHERE id = ?", 
+        messageRequest.MessageId).Scan(&originalMessage.Content)
+    if err != nil {
+        http.Error(response, "error finding message", http.StatusInternalServerError)
+        return
+    }
+
+    _, err = db.Exec("INSERT INTO Messages (sender_id, conversation_id, content) VALUES (?, ?, ?)",
+        myId, messageRequest.ConversationId, "*Redirected " + messageRequest.SenderName + "* " + originalMessage.Content)
+    if err != nil {
+        http.Error(response, "error creating message", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusCreated)
+}
+
+func handledeleteMessages(response http.ResponseWriter, request *http.Request) {
+    messageId := request.URL.Query().Get("messageId")
+   
+    _, err := db.Exec("DELETE FROM Messages WHERE id = ?", messageId)
+    if err != nil {
+        http.Error(response, "error deleting message", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusOK)
 }
 
 func handleGroups(response http.ResponseWriter, request *http.Request) {

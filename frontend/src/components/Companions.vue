@@ -1,12 +1,17 @@
 <template>
-    <h3>companions ↓</h3>
-    <button 
-        v-for="companion in userStore.companions" 
-        @click="selectCompanion(companion)"
-        :key="companion.id">
-        {{ companion.username }}
-    </button>
-</template>
+    <div class="companions-container">
+        <h3>Your Companions</h3>
+        <div class="companions-grid">
+            <button 
+                v-for="companion in userStore.companions" 
+                @click="selectCompanion(companion)"
+                :key="companion.id"
+                class="companion-button">
+                {{ companion.username }}
+            </button>
+        </div>
+    </div>
+ </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
@@ -35,3 +40,28 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.companions-container {
+   padding: 20px;
+}
+
+.companions-grid {
+   display: grid;
+   gap: 10px;
+   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.companion-button {
+   padding: 12px;
+   border: 1px solid #ddd;
+   border-radius: 8px;
+   background-color: white;
+   transition: all 0.2s;
+}
+
+.companion-button:hover {
+   background-color: #09BC8A;
+   transform: scale(1.05);
+}
+</style>

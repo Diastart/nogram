@@ -1,7 +1,16 @@
 <template>
-    <input v-model="message" placeholder="Type a message..." required>
-    <button @click="sendMessage">Send</button>
-</template>
+    <div class="message-input">
+        <input 
+            v-model="message" 
+            placeholder="Type a message..." 
+            class="input"
+            required
+        >
+        <button @click="sendMessage" class="send-button">
+            Send
+        </button>
+    </div>
+ </template>
 
 <script>
 import axios from 'axios';
@@ -29,3 +38,32 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.message-input {
+   display: flex;
+   gap: 10px;
+   padding: 15px;
+   border-top: 1px solid #ddd;
+}
+
+.input {
+   flex: 1;
+   padding: 12px;
+   border: 1px solid #ddd;
+   border-radius: 20px;
+}
+
+.send-button {
+   padding: 10px 20px;
+   background-color: #09BC8A;
+   color: white;
+   border: none;
+   border-radius: 20px;
+   transition: transform 0.2s;
+}
+
+.send-button:hover {
+   transform: scale(1.05);
+}
+</style>

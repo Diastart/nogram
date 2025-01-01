@@ -1,12 +1,17 @@
 <template>
-    <h3>groups ↓</h3>
-    <button 
-        v-for="group in userStore.groups" 
-        @click="selectGroup(group)"
-        :key="group.id">
-        {{ group.groupname }}
-    </button>
-</template>
+    <div class="groups-container">
+        <h3>Your Groups</h3>
+        <div class="groups-grid">
+            <button 
+                v-for="group in userStore.groups" 
+                @click="selectGroup(group)"
+                :key="group.id"
+                class="group-button">
+                {{ group.groupname }}
+            </button>
+        </div>
+    </div>
+ </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
@@ -35,3 +40,28 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.groups-container {
+   padding: 20px;
+}
+
+.groups-grid {
+   display: grid;
+   gap: 10px;
+   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.group-button {
+   padding: 12px;
+   border: 1px solid #ddd;
+   border-radius: 8px;
+   background-color: white;
+   transition: all 0.2s;
+}
+
+.group-button:hover {
+   background-color: #09BC8A;
+   transform: scale(1.05);
+}
+</style>

@@ -1,13 +1,13 @@
 <template>
-    <h3>Welcome {{username}} !!!</h3>
-    <p>-x-x-x-x-x-x-x-x-x-x-x-<span style="color: #6BD425;">SEARCH   COMPANION</span>-x-x-x-x-x-x-x-x-x-x-x-x-x-</p>
+    <h1>Welcome {{username}} 🥳🥳🥳</h1>
+    <hr><h1 style="color: #09BC8A;">SEARCH   COMPANION</h1></hr>
     <Find/>
-    <p>-x-x-x-x-x-x-x-x-x-x-x-x-x-<span style="color: #6BD425;">CREATE   GROUP</span>-x-x-x-x-x-x-x-x-x-x-x-x-x-x-</p>
+    <hr><h1 style="color: #09BC8A;">CREATE   GROUP</h1></hr>
     <Create/>
-    <p>-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-<span style="color: #6BD425;">SELECT</span>-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-</p>
+    <hr><h1 style="color: #09BC8A;">SELECT</h1></hr>
     <Companions/>
     <Groups/>
-    <p>-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-<span style="color: #6BD425;">CHAT</span>-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-</p>
+    <hr><h1 style="color: #09BC8A;">CHAT</h1></hr>
     <Conversation/>
     <Messages/>
 </template>
