@@ -26,7 +26,7 @@
                 </div>
             </div>
  
-            <button v-if="groupName" @click="createGroup" class="create-button">
+            <button @click="createGroup" class="create-button">
                 Create Group
             </button>
         </div>
@@ -53,13 +53,15 @@ export default {
     },
     methods: {
         async createGroup(){
-            try{
-                await axios.post('api/groups', {groupName: this.groupName, groupMembers: this.groupMembers});
-                console.log(this.groupName + 'is created succesfully');
-                this.groupName = '';
-                this.groupMembers = [];
-                this.userStore.fetchGroups();
-            }catch(error){console.log(error)}
+            if (this.groupName){
+                try{
+                    await axios.post('api/groups', {groupName: this.groupName, groupMembers: this.groupMembers});
+                    console.log(this.groupName + 'is created succesfully');
+                    this.groupName = '';
+                    this.groupMembers = [];
+                    this.userStore.fetchGroups();
+                }catch(error){console.log(error)}
+            }else{console.log('Please type a group name')}
         },
     }
 }
@@ -95,12 +97,14 @@ export default {
    display: grid;
    gap: 12px;
    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+   text-align: center;
 }
 
 .member-item {
    background-color: white;
    padding: 10px;
    border-radius: 6px;
+   text-align: center;
 }
 
 .checkbox-label {
@@ -108,6 +112,7 @@ export default {
    align-items: center;
    gap: 8px;
    cursor: pointer;
+   justify-content: center;
 }
 
 .create-button {

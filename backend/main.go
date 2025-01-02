@@ -58,6 +58,16 @@ type RedirectRequest struct {
     SenderName string  `json:"senderName"`
 }
 
+type User struct {
+    ID       int    `json:"id"`
+    Username string `json:"username"`
+}
+
+type Member struct {
+    ID       int    `json:"id"`
+    Username string `json:"username"`
+ }
+
 func getUserId(request *http.Request) (int, error) {
     token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
     if token == "" {
@@ -117,6 +127,29 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
     json.NewEncoder(response).Encode(SessionResponse{
         Token: token,
     })
+}
+
+func handleUsers(response http.ResponseWriter, request *http.Request) {
+    rows, err := db.Query("SELECT id, username FROM Users")
+    if err != nil {
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    var users []User
+
+    for rows.Next() {
+        var user User
+        if err := rows.Scan(&user.ID, &user.Username); err != nil {
+            http.Error(response, "error scanning users", http.StatusInternalServerError)
+            return
+        }
+        users = append(users, user)
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(users)
 }
 
 func handleDialogs(response http.ResponseWriter, request *http.Request) {
@@ -546,6 +579,38 @@ func initDB(){
     fmt.Println("Successfully connected to Wasa database!")
 }
 
+func handleMembers(response http.ResponseWriter, request *http.Request) {
+    groupId := request.URL.Query().Get("groupId")
+   
+    rows, err := db.Query("SELECT user_id FROM GroupsMembers WHERE group_id = ?", groupId)
+    if err != nil {
+        http.Error(response, "database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    var members []Member
+    for rows.Next() {
+        var userId int
+        if err := rows.Scan(&userId); err != nil {
+            http.Error(response, "error scanning user ids", http.StatusInternalServerError)
+            return
+        }
+        
+        var member Member
+        err := db.QueryRow("SELECT id, username FROM Users WHERE id = ?", userId).
+            Scan(&member.ID, &member.Username)
+        if err != nil {
+            http.Error(response, "error getting member info", http.StatusInternalServerError)
+            return
+        }
+        members = append(members, member)
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(members)
+}
+
 func handleConversationsGroups(response http.ResponseWriter, request *http.Request) {
     groupId := request.URL.Query().Get("groupId")
 
@@ -578,11 +643,13 @@ func main() {
 	initDB()
     defer db.Close()
 	http.HandleFunc("/api/session", handleSession)
+    http.HandleFunc("/api/users", handleUsers)
     http.HandleFunc("/api/dialogs", handleDialogs)
     http.HandleFunc("/api/companions", handleCompanions)
     http.HandleFunc("/api/conversations", handleConversations)
     http.HandleFunc("/api/messages", handleMessages)
     http.HandleFunc("/api/groups", handleGroups)
+    http.HandleFunc("/api/members", handleMembers)
     http.HandleFunc("/api/conversations/groups", handleConversationsGroups)
 	http.ListenAndServe(":8080", nil)
 }

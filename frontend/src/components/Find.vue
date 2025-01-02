@@ -3,7 +3,7 @@
         <div class="search-box">
             <input 
                 v-model="companion" 
-                placeholder="Find companion..." 
+                placeholder="Companion name..." 
                 class="search-input"
                 required
             >

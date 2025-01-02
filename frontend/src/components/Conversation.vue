@@ -13,16 +13,21 @@
             </div>
         </div>
     </div>
+    <Members/>
  </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
+import Members from './Members.vue';
 export default {
     name: 'Conversation',
     setup(){
         const userStore = useUserInformation();
         return {userStore};
     },
+    components: {
+        Members,
+    }
 }
 </script>
 

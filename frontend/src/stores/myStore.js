@@ -6,6 +6,8 @@ export const useUserInformation = defineStore('userInformation',{
     companions: [],
     messages: [],
     groups: [],
+    users: [],
+    members: [],
     conversationId: 0,
     conversationPhoto: '',
     conversationName: '',
@@ -31,6 +33,20 @@ export const useUserInformation = defineStore('userInformation',{
         console.log('Fetching groups...');
         this.groups = response.data;
       }catch(error) {console.error('Error fetching groups:', error)}
-    }
+    },
+    async fetchUsers() {
+      try{
+        const response = await axios.get('api/users');
+        console.log('Fetching users...');
+        this.users = response.data;
+      }catch(error) {console.error('Error fetching users:', error)}
+    },
+    async fetchMembers(groupId) {
+      try{
+        const response = await axios.get('api/members', {params: {groupId: groupId}});
+        console.log('Fetching members...');
+        this.members = response.data;
+      }catch(error) {console.error('Error fetching members:', error)}
+    },
   }
 })

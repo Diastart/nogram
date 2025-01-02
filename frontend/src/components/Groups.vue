@@ -1,6 +1,6 @@
 <template>
     <div class="groups-container">
-        <h3>Your Groups</h3>
+        <h5>Your Groups</h5>
         <div class="groups-grid">
             <button 
                 v-for="group in userStore.groups" 
@@ -34,6 +34,7 @@ export default {
                 this.userStore.conversationName = group.groupname
                 console.log('conversation id ' + this.userStore.conversationId)
                 console.log('url to conversation photo ' + this.userStore.conversationPhoto)
+                await this.userStore.fetchMembers(group.id);
                 await this.userStore.fetchMessages();
             }catch(error){console.log(error)}
         }
@@ -44,12 +45,15 @@ export default {
 <style scoped>
 .groups-container {
    padding: 20px;
+   text-align: center;
 }
 
 .groups-grid {
    display: grid;
    gap: 10px;
    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+   width: fit-content;  /* Add this line */
+   margin: 0 auto;     /* Add this line */
 }
 
 .group-button {

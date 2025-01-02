@@ -1,13 +1,14 @@
 <template>
-    <div class="search-container">
-        <div class="search-box">
+    <div class="login-container">
+        <img src="../assets/iconca.png" class="logo">
+        <div class="login-box">
             <input 
                 v-model="username" 
                 placeholder="Enter your username..." 
-                class="search-input"
+                class="login-input"
                 required
             >
-            <button v-if="username" @click="doLogin" class="add-button">
+            <button @click="doLogin" class="login-button">
                 Login
             </button>
         </div>
@@ -30,37 +31,53 @@ import { useUserInformation } from '@/stores/myStore';
         },
         methods: {
             async doLogin(){
-                try{
-                    const response = await axios.post('api/session', { username: this.username });
-                    const token = response.data.token
-                    console.log(token)
-                    localStorage.setItem('token', token)
-                    localStorage.setItem('username', this.username)
-                    this.$router.push('/chat');
-                }catch (error){console.log(error)}
+                if (this.username) {
+                    try{
+                        const response = await axios.post('api/session', { username: this.username });
+                        const token = response.data.token
+                        console.log(token)
+                        localStorage.setItem('token', token)
+                        localStorage.setItem('username', this.username)
+                        this.$router.push('/chat');
+                    }catch (error){console.log(error)}
+                }else {console.log('Please type a name')}
             },
         }
     }
 </script>
 
 <style scoped>
-.search-container {
-   padding: 20px;
+.login-container {
+   height: 100vh;
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   gap: 30px;
 }
 
-.search-box {
+.logo {
+   width: 150px;  /* Adjust size as needed */
+   height: auto;
+   margin-bottom: 20px;
+}
+
+.login-box {
    display: flex;
    gap: 10px;
+   width: 100%;
+   max-width: 400px;  /* Limit width on larger screens */
+   padding: 0 20px;
 }
 
-.search-input {
+.login-input {
    padding: 12px;
    border: 1px solid #ddd;
    border-radius: 8px;
    flex: 1;
 }
 
-.add-button {
+.login-button {
    padding: 12px 24px;
    background-color: #09BC8A;
    color: white;
@@ -69,7 +86,7 @@ import { useUserInformation } from '@/stores/myStore';
    transition: transform 0.2s;
 }
 
-.add-button:hover {
+.login-button:hover {
    transform: scale(1.05);
 }
 </style>

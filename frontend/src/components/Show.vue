@@ -1,6 +1,7 @@
 <template>
     <div class="messages-container">
         <h3>Messages:</h3>
+        <small>you can tap to see options</small>
         <div class="messages">
             <div class="message" v-for="message in userStore.messages" @click="options(message)">
                 <div class="message-content">
@@ -74,12 +75,12 @@ export default {
    padding: 20px;
 }
 
-.message {
-   padding: 15px;
-   margin: 10px 0;
-   border-radius: 8px;
-   border: 1px solid #ddd;
-   transition: all 0.2s;
+.message { 
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    transition: all 0.2s;
 }
 
 .message:hover {

@@ -1,6 +1,6 @@
 <template>
     <div class="companions-container">
-        <h3>Your Companions</h3>
+        <h5>Your Companions</h5>
         <div class="companions-grid">
             <button 
                 v-for="companion in userStore.companions" 
@@ -32,6 +32,7 @@ export default {
                 this.userStore.conversationId = response.data.conversationId
                 this.userStore.conversationPhoto = response.data.conversationPhoto
                 this.userStore.conversationName = companion.username
+                this.userStore.members = [];
                 console.log('conversation id ' + this.userStore.conversationId)
                 console.log('url to conversation photo ' + this.userStore.conversationPhoto)
                 await this.userStore.fetchMessages();
@@ -44,12 +45,15 @@ export default {
 <style scoped>
 .companions-container {
    padding: 20px;
+   text-align: center;
 }
 
 .companions-grid {
    display: grid;
    gap: 10px;
    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+   width: fit-content;  /* Add this line */
+   margin: 0 auto;     /* Add this line */
 }
 
 .companion-button {
