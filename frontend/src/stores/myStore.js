@@ -8,6 +8,7 @@ export const useUserInformation = defineStore('userInformation',{
     groups: [],
     users: [],
     members: [],
+    candidates: [],
     conversationId: 0,
     conversationPhoto: '',
     conversationName: '',
@@ -46,6 +47,7 @@ export const useUserInformation = defineStore('userInformation',{
         const response = await axios.get('api/members', {params: {groupId: groupId}});
         console.log('Fetching members...');
         this.members = response.data;
+        this.candidates = this.companions.filter(c => !this.members.some(m => m.id === c.id))
       }catch(error) {console.error('Error fetching members:', error)}
     },
   }

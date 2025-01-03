@@ -66,7 +66,12 @@ type User struct {
 type Member struct {
     ID       int    `json:"id"`
     Username string `json:"username"`
- }
+}
+
+type CandidateRequest struct {
+    ConversationId int `json:"conversationId"`
+    UserId         int `json:"userId"`
+}
 
 func getUserId(request *http.Request) (int, error) {
     token := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
@@ -579,6 +584,34 @@ func initDB(){
     fmt.Println("Successfully connected to Wasa database!")
 }
 
+func handleCandidates(response http.ResponseWriter, request *http.Request) {
+    var candidateRequest CandidateRequest
+    if err := json.NewDecoder(request.Body).Decode(&candidateRequest); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    var groupId int
+    err := db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", 
+        candidateRequest.ConversationId).Scan(&groupId)
+    if err != nil {
+        http.Error(response, "error getting group id", http.StatusInternalServerError)
+        return
+    }
+
+    _, err = db.Exec("INSERT INTO GroupsMembers (group_id, user_id) VALUES (?, ?)",
+        groupId, candidateRequest.UserId)
+    if err != nil {
+        http.Error(response, "error adding member", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusCreated)
+    json.NewEncoder(response).Encode(map[string]int{
+        "groupId": groupId,
+    })
+}
+
 func handleMembers(response http.ResponseWriter, request *http.Request) {
     groupId := request.URL.Query().Get("groupId")
    
@@ -650,6 +683,7 @@ func main() {
     http.HandleFunc("/api/messages", handleMessages)
     http.HandleFunc("/api/groups", handleGroups)
     http.HandleFunc("/api/members", handleMembers)
+    http.HandleFunc("/api/candidates", handleCandidates)
     http.HandleFunc("/api/conversations/groups", handleConversationsGroups)
 	http.ListenAndServe(":8080", nil)
 }

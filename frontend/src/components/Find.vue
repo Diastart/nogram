@@ -35,6 +35,7 @@ export default {
                 console.log(this.companion + ' is added successfully');
                 this.companion = '';
                 await this.userStore.fetchCompanions();
+                this.userStore.candidates = this.userStore.companions.filter(c => !this.userStore.members.some(m => m.id === c.id))
             }catch(error){console.log(error)}
         },
     }

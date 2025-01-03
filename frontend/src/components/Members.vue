@@ -1,5 +1,5 @@
 <template>
-    <div v-if="userStore.members.length > 0" class="members-container">
+    <div v-if="userStore.members && userStore.members.length > 0" class="members-container">
         <h5>Members of the group</h5>
         <div class="members-list">
             <div v-for="member in userStore.members" 
@@ -9,16 +9,21 @@
                 {{ member.username }}
             </div>
         </div>
+        <Candidates/>
     </div>
 </template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';
+import Candidates from './Candidates.vue'
 export default {
     name: 'Members',
     setup(){
         const userStore = useUserInformation();
         return {userStore};
+    },
+    components: {
+        Candidates,
     },
 }
 </script>
