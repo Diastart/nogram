@@ -96,6 +96,11 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
         return
     }
 
+    if companion1Id == companion2Id {
+        http.Error(response, "you can not add yourself", http.StatusConflict)
+        return
+    }
+
     var exists bool
     err = db.QueryRow(`
         SELECT EXISTS(
@@ -288,7 +293,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
             return
         }
 
-        t, err := time.Parse("2006-01-02 15:04:05", timeStr)
+        t, err := time.Parse(time.RFC3339, timeStr)
         if err != nil {
             log.Printf("Time parse error: %v", err)
             http.Error(response, "error parsing time", http.StatusInternalServerError)

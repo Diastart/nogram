@@ -6,6 +6,7 @@ import (
     "log"
     "net/http"
     "strings"
+    "os"
 )
 
 var db *sql.DB
@@ -28,11 +29,23 @@ func getUserId(request *http.Request) (int, error) {
     return userId, nil
 }
 
-func initDB(){
-	var err error
-	db, err = sql.Open("mysql", "root:Abcdefg_1234@tcp(localhost:3306)/WASADB")
-	if err != nil {log.Fatal(err)}
-	err = db.Ping()
+func initDB() {
+    var err error
+    db, err = sql.Open("sqlite3", "./wasa.db")
     if err != nil {log.Fatal(err)}
-    fmt.Println("Successfully connected to Wasa database!")
+
+    var tableExists bool
+    err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Users')").Scan(&tableExists)
+    if err != nil {log.Fatal(err)}
+
+    if !tableExists {
+        schema, err := os.ReadFile("schema.sql")
+        if err != nil {log.Fatal(err)}
+
+        _, err = db.Exec(string(schema))
+        if err != nil {log.Fatal(err)}
+
+        fmt.Println("Database schema initialized!")
+    }
+    fmt.Println("Successfully connected to SQLite database!")
 }

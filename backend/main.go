@@ -2,7 +2,7 @@ package main
 
 import (
     "net/http"
-    _ "github.com/go-sql-driver/mysql"
+    _ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
