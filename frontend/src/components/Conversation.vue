@@ -14,7 +14,7 @@
         </div>
     </div>
     <Members/>
- </template>
+</template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';

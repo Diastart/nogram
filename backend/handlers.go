@@ -9,6 +9,7 @@ import (
     "net/http"
     "strconv"
     "time"
+    "sort"
 )
 
 func handleSession(response http.ResponseWriter, request *http.Request) {
@@ -271,7 +272,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
     }
 
     rows, err := db.Query(`
-        SELECT id, sender_id, content, time
+        SELECT id, sender_id, content, time, reaction
         FROM Messages 
         WHERE conversation_id = ?
         ORDER BY time ASC`,
@@ -287,11 +288,16 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
     for rows.Next() {
         var msg Message
         var timeStr string
-        if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr); err != nil {
+        var reaction sql.NullString 
+        if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr, &reaction); err != nil {
             log.Printf("Scan error: %v", err)
             http.Error(response, "error scanning messages", http.StatusInternalServerError)
             return
         }
+
+        if reaction.Valid {
+            msg.Reaction = reaction.String
+        } else {msg.Reaction = ""}
 
         t, err := time.Parse(time.RFC3339, timeStr)
         if err != nil {
@@ -622,4 +628,157 @@ func handleConversationsGroups(response http.ResponseWriter, request *http.Reque
         "conversationId": conversationId,
         "conversationPhoto": conversationPhoto,
     })
+}
+
+func handleReactions(response http.ResponseWriter, request *http.Request) {
+    switch request.Method {
+    case http.MethodPut:
+        handleputReactions(response, request)
+    case http.MethodDelete:
+        handledeleteReactions(response, request)
+    default:
+        http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
+    }
+}
+
+func handleputReactions(response http.ResponseWriter, request *http.Request) {
+    var reactionRequest ReactionRequest
+    if err := json.NewDecoder(request.Body).Decode(&reactionRequest); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    _, err := db.Exec("UPDATE Messages SET reaction = ? WHERE id = ?",
+        reactionRequest.Reaction, reactionRequest.MessageId)
+    if err != nil {
+        http.Error(response, "error updating reaction", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusOK)
+}
+
+func handledeleteReactions(response http.ResponseWriter, request *http.Request) {
+    messageId := request.URL.Query().Get("messageId")
+
+    _, err := db.Exec("UPDATE Messages SET reaction = NULL WHERE id = ?",
+        messageId)
+    if err != nil {
+        http.Error(response, "error updating reaction", http.StatusInternalServerError)
+        return
+    }
+
+    response.WriteHeader(http.StatusOK)
+}
+
+func handleLatestMessages(response http.ResponseWriter, request *http.Request) {
+    userId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    var companions []Companion
+    if err := json.NewDecoder(request.Body).Decode(&companions); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    latestMessages := []LatestMessage{}
+ 
+    for _, companion := range companions {
+        var conversationId int
+        err := db.QueryRow(`
+            SELECT conversation.id 
+            FROM Conversations conversation
+            JOIN Dialogs dialog ON conversation.dialog_id = dialog.id
+            WHERE (dialog.companion1Id = ? AND dialog.companion2Id = ?)
+               OR (dialog.companion1Id = ? AND dialog.companion2Id = ?)`,
+            userId, companion.ID,
+            companion.ID, userId,
+        ).Scan(&conversationId)
+ 
+        if err != nil {
+            http.Error(response, "conversation not found", http.StatusNotFound)
+            return
+        }
+ 
+        var latestMsg LatestMessage
+        var timeStr string
+        err = db.QueryRow(`
+            SELECT content, time
+            FROM Messages
+            WHERE conversation_id = ?
+            ORDER BY time DESC
+            LIMIT 1`,
+            conversationId,
+        ).Scan(&latestMsg.Content, &timeStr)
+ 
+        if err != nil {
+            continue
+        }
+
+        t, err := time.Parse(time.RFC3339, timeStr)
+        if err != nil {
+            http.Error(response, "error parsing time", http.StatusInternalServerError)
+            return
+        }
+        latestMsg.Time = t.Format(time.RFC3339)
+        latestMsg.CompanionId = companion.ID
+ 
+        latestMessages = append(latestMessages, latestMsg)
+    }
+ 
+    sort.Slice(latestMessages, func(i, j int) bool {
+        return latestMessages[i].Time > latestMessages[j].Time
+    })
+ 
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(latestMessages)
+}
+
+func handleLatestGroupMessages(response http.ResponseWriter, request *http.Request) {
+    var groups []GroupResponse
+    if err := json.NewDecoder(request.Body).Decode(&groups); err != nil {
+        http.Error(response, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    latestMessages := []LatestGroupMessage{}
+
+    for _, group := range groups {
+        var conversationId int
+        err := db.QueryRow("SELECT id FROM Conversations WHERE group_id = ?", 
+            group.ID).Scan(&conversationId)
+        if err != nil {
+            continue
+        }
+
+        var latestMsg LatestGroupMessage
+        var timeStr string
+        err = db.QueryRow(`
+            SELECT content, time
+            FROM Messages
+            WHERE conversation_id = ?
+            ORDER BY time DESC
+            LIMIT 1`,
+            conversationId,
+        ).Scan(&latestMsg.Content, &timeStr)
+
+        if err != nil {
+            continue
+        }
+
+        t, err := time.Parse(time.RFC3339, timeStr)
+        if err != nil {
+            continue
+        }
+        latestMsg.Time = t.Format(time.RFC3339)
+        latestMsg.GroupId = group.ID
+
+        latestMessages = append(latestMessages, latestMsg)
+    }
+
+    response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(latestMessages)
 }

@@ -10,7 +10,7 @@
             Send
         </button>
     </div>
- </template>
+</template>
 
 <script>
 import axios from 'axios';
@@ -32,7 +32,9 @@ export default {
                 await axios.post('api/messages', {conversationId: this.userStore.conversationId ,content: this.message});
                 console.log('message is sent successfully');
                 this.message = '';
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
             }catch(error){console.log(error)}
         }
     }

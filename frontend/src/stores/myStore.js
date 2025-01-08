@@ -9,6 +9,8 @@ export const useUserInformation = defineStore('userInformation',{
     users: [],
     members: [],
     candidates: [],
+    latestMessages: [],
+    latestMessagesOfGroups: [],
     conversationId: 0,
     conversationPhoto: '',
     conversationName: '',
@@ -25,6 +27,7 @@ export const useUserInformation = defineStore('userInformation',{
       try{
         const response = await axios.get('api/messages', {params: {conversationId: this.conversationId}});
         console.log('Fetching messages...');
+        console.log('Messages response:', response.data); 
         this.messages = response.data
       } catch (error) {console.error('Error fetching messages:', error)}
     },
@@ -50,5 +53,23 @@ export const useUserInformation = defineStore('userInformation',{
         this.candidates = this.companions.filter(c => !this.members.some(m => m.id === c.id))
       }catch(error) {console.error('Error fetching members:', error)}
     },
+    async fetchLatestMessages() {
+      try {
+          console.log('Fetching latest messages...');
+          const response = await axios.post('api/latest/messages', this.companions);
+          console.log('Latest messages response:', response.data);
+          this.latestMessages = response.data;
+      } catch (error) {console.error('Error fetching latest messages:', error);}
+    },
+    async fetchLatestMessagesOfGroups() {
+      try {
+          if (!this.groups || this.groups.length === 0) {
+              console.log('No groups to fetch messages for');
+              return;
+          }
+          const response = await axios.post('api/latest/messages/groups', this.groups);
+          this.latestMessagesOfGroups = response.data;
+      } catch (error) {console.error('Error fetching group messages:', error);}
+    }
   }
 })

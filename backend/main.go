@@ -18,5 +18,8 @@ func main() {
     http.HandleFunc("/api/members", handleMembers)
     http.HandleFunc("/api/candidates", handleCandidates)
     http.HandleFunc("/api/conversations/groups", handleConversationsGroups)
+    http.HandleFunc("/api/reactions", handleReactions)
+    http.HandleFunc("/api/latest/messages", handleLatestMessages)
+    http.HandleFunc("/api/latest/messages/groups", handleLatestGroupMessages)
 	http.ListenAndServe(":8080", nil)
 }

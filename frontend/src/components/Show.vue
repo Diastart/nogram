@@ -6,29 +6,48 @@
             <div class="message" v-for="message in userStore.messages" @click="options(message)">
                 <div class="message-content">
                     <div class="sender">{{ message.senderName }}</div>
-                    <div class="content">{{ message.content }}</div>
+                    <div class="content">
+                        {{ message.content }}
+                        <span v-if="message.reaction" class="reaction">{{ message.reaction }}</span>
+                    </div>
                     <div class="time">{{ message.time }}</div>
                 </div>
  
-                <div v-if="selectedMessageId === message.id" class="options-popup">
-                    <div class="redirect-section">
-                        <h5 style="color:black">Redirect to:</h5>
-                        <div class="companions-list">
-                            <button 
-                                v-for="companion in userStore.companions" 
-                                @click="redirectMessage(message, companion)"
-                                class="companion-button"
-                            >
-                                {{ companion.username }}
-                            </button>
+                <div v-if="selectedMessageId === message.id" >
+                    <div class="options-popup">
+                        <div class="redirect-section">
+                            <h5 style="color:black">Redirect to:</h5>
+                            <div class="companions-list">
+                                <button 
+                                    v-for="companion in userStore.companions" 
+                                    @click="redirectMessage(message, companion)"
+                                    class="companion-button"
+                                >
+                                    {{ companion.username }}
+                                </button>
+                            </div>
+                        </div>
+                        <hr style="color: black;">
+                        <div class="reaction-section">
+                            <h5 style="color: black;">Comment</h5>
+                            <div class="emoji-list">
+                                <button 
+                                    v-for="emoji in emojis" 
+                                    @click="addReaction(message, emoji)"
+                                    class="emoji-button"
+                                >
+                                    {{ emoji }}
+                                </button>
+                            </div>
                         </div>
                     </div>
+                    <button @click="deleteReaction(message)" class="uncomment-button">Uncomment</button>
                     <button @click="deleteMessage(message)" class="delete-button">Delete Message</button>
                 </div>
             </div>
         </div>
     </div>
- </template>
+</template>
 
 <script>
 import axios from 'axios'
@@ -45,6 +64,7 @@ export default {
     data(){
         return {
             selectedMessageId: null,
+            emojis: ['👍', '❤️', '😊', '😂', '🎉', '👏', '🤔', '👌'],
         }
     },
     methods: {
@@ -65,6 +85,20 @@ export default {
                 console.log('Deleted');
                 this.userStore.fetchMessages();
             }catch(error){console.log(error)}
+        },
+        async addReaction(message, emoji) {
+            try {
+                await axios.put('api/reactions', {messageId: message.id, reaction: emoji});
+                this.showEmojis = false;
+                this.userStore.fetchMessages();
+            } catch(error) {console.log(error);}
+        },
+        async deleteReaction(message) {
+            try {
+                await axios.delete('api/reactions', {params: {messageId: message.id}});
+                console.log('Uncommented');
+                this.userStore.fetchMessages();
+            } catch (error) {console.log(error)}
         }
     }
 }
@@ -90,6 +124,7 @@ export default {
 
 .message-content {
    margin-bottom: 10px;
+   position: relative; 
 }
 
 .sender {
@@ -137,5 +172,60 @@ export default {
    border: none;
    border-radius: 4px;
    cursor: pointer;
+}
+
+.uncomment-button {
+   width: 100%;
+   padding: 8px;
+   margin-top: 10px;
+   background-color: gray;
+   color: white;
+   border: none;
+   border-radius: 4px;
+   cursor: pointer;
+}
+
+.reaction-section {
+    margin-top: 10px;
+}
+
+.reaction-button {
+    width: 100%;
+    padding: 8px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.emoji-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.emoji-button {
+    padding: 8px;
+    font-size: 1.2em;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.emoji-button:hover {
+    background-color: #f5f5f5;
+}
+
+.reaction {
+    position: absolute;
+    bottom: -10px;
+    left: 10px;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    border: 1px solid #ddd;
 }
 </style>

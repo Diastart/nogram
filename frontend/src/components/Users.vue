@@ -1,6 +1,5 @@
 <template>
     <div class="users-container">
-        <h5>Users of the app</h5>
         <div class="users-list">
             <div v-for="user in userStore.users" 
                 style="color: black;"
@@ -10,7 +9,7 @@
             </div>
         </div>
     </div>
- </template>
+</template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';

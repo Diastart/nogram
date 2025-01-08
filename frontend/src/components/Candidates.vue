@@ -1,7 +1,7 @@
 <template>
     <div v-if="this.userStore.candidates && this.userStore.candidates.length > 0" class="candidates-container">
-        <h5>Candidates</h5>
-        <small>press to add a candidate</small>
+        <h5>Add candidate(s)</h5>
+        <small>press to add a candidate to the group</small>
         <div class="candidates-grid">
             <button 
                 v-for="candidate in userStore.candidates"
@@ -12,7 +12,7 @@
             </button>
         </div>
     </div>
- </template>
+</template>
 
 <script>
 import { useUserInformation } from '@/stores/myStore';

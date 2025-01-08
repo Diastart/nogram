@@ -19,6 +19,7 @@ type Message struct {
     Time       string    `json:"time"`
     SenderId   int       `json:"senderId"`
     SenderName string    `json:"senderName"`
+    Reaction   string    `json:"reaction"`
 }
 
 type MessageRequest struct {
@@ -56,4 +57,21 @@ type Member struct {
 type CandidateRequest struct {
     ConversationId int `json:"conversationId"`
     UserId         int `json:"userId"`
+}
+
+type ReactionRequest struct {
+    MessageId int    `json:"messageId"`
+    Reaction  string `json:"reaction"`
+}
+
+type LatestMessage struct {
+    CompanionId int    `json:"companionId"`
+    Content     string `json:"content"`
+    Time        string `json:"time"`
+}
+
+type LatestGroupMessage struct {
+    GroupId int    `json:"groupId"`
+    Content string `json:"content"`
+    Time    string `json:"time"`
 }

@@ -1,12 +1,12 @@
 <template>
     <h1 style="color: #B118C8;">Welcome {{username}} 🥳🥳🥳</h1>
-    <hr><h1 style="color: #09BC8A;">ADD   COMPANION</h1></hr>
-    <Find/>
+    <hr><h1 style="color: #09BC8A;">USERS OF THE APP</h1></hr>
     <Users/>
-    <hr><h1 style="color: #09BC8A;">CREATE   GROUP</h1></hr>
-    <Create/>
-    <hr><h1 style="color: #09BC8A;">SELECT</h1></hr>
+    <hr><h1 style="color: #09BC8A;">ADD COMPANION</h1></hr>
+    <Find/>
     <Companions/>
+    <hr><h1 style="color: #09BC8A;">CREATE GROUP</h1></hr>
+    <Create/>
     <Groups/>
     <hr><h1 style="color: #09BC8A;">CHAT</h1></hr>
     <Conversation/>
