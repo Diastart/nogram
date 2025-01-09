@@ -14,6 +14,8 @@ export const useUserInformation = defineStore('userInformation',{
     conversationId: 0,
     conversationPhoto: '',
     conversationName: '',
+    profileName: '',
+    profilePhoto: '',
   }),
   actions: {
     async fetchCompanions() {
@@ -70,6 +72,15 @@ export const useUserInformation = defineStore('userInformation',{
           const response = await axios.post('api/latest/messages/groups', this.groups);
           this.latestMessagesOfGroups = response.data;
       } catch (error) {console.error('Error fetching group messages:', error);}
+    },
+    async fetchProfile() {
+      try {
+          console.log('Fetching profile data...')
+          const response = await axios.get('api/profile')
+          this.profileName = response.data.username
+          this.profilePhoto = response.data.photo
+          console.log('Profile fetched successfully')
+      } catch (error) {console.error('Error fetching profile')}
     }
   }
 })

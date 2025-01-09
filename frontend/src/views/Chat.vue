@@ -1,5 +1,5 @@
 <template>
-    <h1 style="color: #B118C8;">Welcome {{username}} 🥳🥳🥳</h1>
+    <Profile/>
     <hr><h1 style="color: #09BC8A;">USERS OF THE APP</h1></hr>
     <Users/>
     <hr><h1 style="color: #09BC8A;">ADD COMPANION</h1></hr>
@@ -14,14 +14,15 @@
 </template>
 
 <script>
-import axios from 'axios'
+import axios from 'axios';
 import Find from '../components/Find.vue';
-import Companions from '../components/Companions.vue'
+import Companions from '../components/Companions.vue';
 import Conversation from '@/components/Conversation.vue';
 import Messages from '@/components/Messages.vue';
 import Create from '@/components/Create.vue';
 import Groups from '@/components/Groups.vue';
 import Users from '@/components/Users.vue';
+import Profile from '@/components/Profile.vue';
 export default {
     name: 'Chat',
     components: {
@@ -32,11 +33,7 @@ export default {
         Create,
         Groups,
         Users,
-    },
-    data(){
-        return {
-            username: localStorage.getItem('username')
-        }
+        Profile,
     },
     setup(){
         const token = localStorage.getItem('token');

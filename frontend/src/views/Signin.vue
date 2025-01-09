@@ -37,7 +37,6 @@ import { useUserInformation } from '@/stores/myStore';
                         const token = response.data.token
                         console.log(token)
                         localStorage.setItem('token', token)
-                        localStorage.setItem('username', this.username)
                         await this.$router.push('/chat');
                         location.reload();
                     }catch (error){console.log(error)}

@@ -76,3 +76,12 @@ type LatestGroupMessage struct {
     Content string `json:"content"`
     Time    string `json:"time"`
 }
+
+type UsernameRequest struct {
+    Username string `json:"username"`
+}
+
+type ProfileResponse struct {
+    Username string `json:"username"`
+    Photo    string `json:"photo"`
+}
