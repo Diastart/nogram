@@ -20,6 +20,7 @@ type Message struct {
     SenderId   int       `json:"senderId"`
     SenderName string    `json:"senderName"`
     Reaction   string    `json:"reaction"`
+    Checkmark  string    `json:"checkmark"`
 }
 
 type MessageRequest struct {

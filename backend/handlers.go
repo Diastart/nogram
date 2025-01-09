@@ -264,6 +264,12 @@ func handleMessages(response http.ResponseWriter, request *http.Request) {
 }
 
 func handlegetMessages(response http.ResponseWriter, request *http.Request) {
+    currentUserId, err := getUserId(request)
+    if err != nil {
+        http.Error(response, err.Error(), http.StatusUnauthorized)
+        return
+    }
+
     conversationIdStr := request.URL.Query().Get("conversationId")
     conversationId, err := strconv.Atoi(conversationIdStr)
     if err != nil {
@@ -272,7 +278,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
     }
 
     rows, err := db.Query(`
-        SELECT id, sender_id, content, time, reaction
+        SELECT id, sender_id, content, time, reaction, checkmark
         FROM Messages 
         WHERE conversation_id = ?
         ORDER BY time ASC`,
@@ -284,15 +290,33 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
     }
     defer rows.Close()
 
+    tx, err := db.Begin()
+    if err != nil {
+        http.Error(response, "error starting transaction", http.StatusInternalServerError)
+        return
+    }
+
     messages := []Message{}
     for rows.Next() {
         var msg Message
         var timeStr string
-        var reaction sql.NullString 
-        if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr, &reaction); err != nil {
+        var reaction sql.NullString
+        if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr, &reaction, &msg.Checkmark); err != nil {
+            tx.Rollback()
             log.Printf("Scan error: %v", err)
             http.Error(response, "error scanning messages", http.StatusInternalServerError)
             return
+        }
+
+        if msg.SenderId != currentUserId && msg.Checkmark == "✓" {
+            _, err = tx.Exec("UPDATE Messages SET checkmark = '✓✓' WHERE id = ?", msg.Id)
+            if err != nil {
+                tx.Rollback()
+                log.Printf("Error updating checkmark: %v", err)
+                http.Error(response, "error when trying to change checkmark field", http.StatusInternalServerError)
+                return
+            }
+            msg.Checkmark = "✓✓"
         }
 
         if reaction.Valid {
@@ -315,6 +339,12 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
         } 
         messages = append(messages, msg)
     }
+
+    if err = tx.Commit(); err != nil {
+        http.Error(response, "error committing transaction", http.StatusInternalServerError)
+        return
+    }
+
     response.Header().Set("Content-Type", "application/json")
     json.NewEncoder(response).Encode(messages)
 }

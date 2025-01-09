@@ -1,20 +1,40 @@
 <template>
     <div class="messages-container">
         <h3>Messages:</h3>
-        <small>you can tap to see options</small>
+        <small>tap to see options</small>
         <div class="messages">
             <div class="message" v-for="message in userStore.messages" @click="options(message)">
                 <div class="message-content">
                     <div class="sender">{{ message.senderName }}</div>
                     <div class="content">
                         {{ message.content }}
+                        <span class="checkmark">{{ message.checkmark }}</span>
                         <span v-if="message.reaction" class="reaction">{{ message.reaction }}</span>
                     </div>
-                    <div class="time">{{ message.time }}</div>
+                    <hr>
+                    <div class="time">{{ formatTime(message.time) }}</div>
                 </div>
- 
+
                 <div v-if="selectedMessageId === message.id" >
                     <div class="options-popup">
+
+                        <div class="response-section">
+                            <h5 style="color:black">Respond:</h5>
+                            <div class="response-input">
+                                <input 
+                                    v-model="responseText" 
+                                    placeholder="Type your response..." 
+                                    required
+                                    class="response-field"
+                                    @click.stop
+                                >
+                                <button @click="respondToMessage(message)" class="response-button">
+                                    🚀
+                                </button>
+                            </div>
+                        </div>
+                        <hr style="color: black;">
+
                         <div class="redirect-section">
                             <h5 style="color:black">Redirect to:</h5>
                             <div class="companions-list">
@@ -28,6 +48,7 @@
                             </div>
                         </div>
                         <hr style="color: black;">
+
                         <div class="reaction-section">
                             <h5 style="color: black;">Comment</h5>
                             <div class="emoji-list">
@@ -40,6 +61,7 @@
                                 </button>
                             </div>
                         </div>
+                        <hr style="color: black;">
                     </div>
                     <button @click="deleteReaction(message)" class="uncomment-button">Uncomment</button>
                     <button @click="deleteMessage(message)" class="delete-button">Delete Message</button>
@@ -65,6 +87,7 @@ export default {
         return {
             selectedMessageId: null,
             emojis: ['👍', '❤️', '😊', '😂', '🎉', '👏', '🤔', '👌'],
+            responseText: '',
         }
     },
     methods: {
@@ -99,7 +122,29 @@ export default {
                 console.log('Uncommented');
                 this.userStore.fetchMessages();
             } catch (error) {console.log(error)}
-        }
+        },
+        formatTime(timeString) {
+            return new Date(timeString).toLocaleTimeString([], { 
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+        },
+        async respondToMessage(message) {
+            if (!this.responseText) return;
+            try {
+                await axios.post('api/messages', {
+                    conversationId: this.userStore.conversationId,
+                    content: `👉${message.content}👇\n${this.responseText}`
+                });
+                this.responseText = '';
+                this.userStore.fetchMessages();
+            } catch(error) {
+                console.log(error);
+            }
+        },
     }
 }
 </script>
@@ -133,7 +178,6 @@ export default {
 }
 
 .time {
-   color: #666;
    font-size: 0.9em;
    margin-top: 5px;
 }
@@ -227,5 +271,47 @@ export default {
     border-radius: 12px;
     font-size: 0.9em;
     border: 1px solid #ddd;
+}
+
+.content {
+    position: relative;
+    padding-right: 20px;  
+}
+
+.checkmark {
+    position: absolute;
+    right: 5px;
+    bottom: 0;
+    font-size: 0.8em;
+}
+
+.response-section {
+    margin-bottom: 15px;
+}
+
+.response-input {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.response-field {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.response-button {
+    padding: 8px 16px;
+    background-color: #09BC8A;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.response-button:hover {
+    opacity: 0.9;
 }
 </style>

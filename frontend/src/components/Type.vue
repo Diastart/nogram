@@ -7,7 +7,7 @@
             required
         >
         <button @click="sendMessage" class="send-button">
-            Send
+            🚀
         </button>
     </div>
 </template>

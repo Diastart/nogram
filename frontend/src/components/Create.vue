@@ -9,25 +9,23 @@
             >
             
             <div class="members-section">
-                <h4 style="color: black;">Select Members</h4>
+                <h4 class="section-title">Select Members</h4>
                 <div class="members-grid">
                     <div v-for="companion in userStore.companions" 
-                         :key="companion.id" 
-                         class="member-item">
-                        <label style="color: black;" class="checkbox-label">
-                            <input 
-                                type="checkbox"
-                                v-model="groupMembers"
-                                :value="companion.id"
-                            >
-                            {{ companion.username }}
-                        </label>
+                            :key="companion.id" 
+                            class="member-card"
+                            :class="{ 'selected': groupMembers.includes(companion.id) }"
+                            @click="toggleMember(companion.id)">
+                        <span class="member-name">{{ companion.username }}</span>
+                        <div class="checkbox-circle">
+                            <div v-if="groupMembers.includes(companion.id)" class="check">✓</div>
+                        </div>
                     </div>
                 </div>
             </div>
  
             <button @click="createGroup" class="create-button">
-                Create Group
+                🚀
             </button>
         </div>
     </div>
@@ -63,6 +61,14 @@ export default {
                 }catch(error){console.log(error)}
             }else{console.log('Please type a group name')}
         },
+        toggleMember(id) {
+            const index = this.groupMembers.indexOf(id)
+            if (index === -1) {
+                this.groupMembers.push(id)
+            } else {
+                this.groupMembers.splice(index, 1)
+            }
+        },
     }
 }
 </script>
@@ -88,31 +94,70 @@ export default {
 }
 
 .members-section {
-   background-color: #f5f5f5;
+   background-color: white;
    padding: 20px;
-   border-radius: 8px;
+   border-radius: 12px;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+   text-align: center;
+   margin-bottom: 20px;
+   color: #333;
+   font-size: 1.2em;
 }
 
 .members-grid {
    display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
    gap: 12px;
-   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-   text-align: center;
 }
 
-.member-item {
-   background-color: white;
-   padding: 10px;
-   border-radius: 6px;
-   text-align: center;
+.member-card {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 12px 16px;
+   background-color: #f8f9fa;
+   border: 2px solid #e9ecef;
+   border-radius: 8px;
+   cursor: pointer;
+   transition: all 0.2s ease;
 }
 
-.checkbox-label {
+.member-card:hover {
+   background-color: #e9ecef;
+   transform: translateY(-2px);
+}
+
+.member-card.selected {
+   border-color: #09BC8A;
+   background-color: #e6f7f2;
+}
+
+.member-name {
+   font-weight: 500;
+   color: #333;
+}
+
+.checkbox-circle {
+   width: 24px;
+   height: 24px;
+   border: 2px solid #ddd;
+   border-radius: 50%;
    display: flex;
    align-items: center;
-   gap: 8px;
-   cursor: pointer;
    justify-content: center;
+}
+
+.selected .checkbox-circle {
+   border-color: #09BC8A;
+   background-color: #09BC8A;
+}
+
+.check {
+   color: white;
+   font-size: 14px;
 }
 
 .create-button {

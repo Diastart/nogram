@@ -8,7 +8,7 @@
                 required
             >
             <button @click="findCompanion" class="add-button">
-                Add
+                🚀
             </button>
         </div>
     </div>

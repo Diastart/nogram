@@ -33,19 +33,20 @@ export default {
 
 <style scoped>
 .conversation-header {
-   width: 100%;
-   padding: 20px 0;
-   background-color: #808080;  /* Changed to grey */
-   display: flex;
-   justify-content: flex-start;  /* Changed from center to flex-start */
-   border-bottom: 1px solid #2A3241;
+    width: 100%;
+    padding: 20px 0;
+    background-color: #808080;  
+    display: flex;
+    justify-content: flex-start;  
+    border-bottom: 1px solid #2A3241;
+    border-radius: 10px;
 }
 
 .header-content {
    display: flex;
    align-items: center;
-   margin-left: 40px;  /* Add space from left edge */
-   gap: 20px;  /* Space between photo and text */
+   margin-left: 40px; 
+   gap: 20px;  
 }
 
 .profile-container {

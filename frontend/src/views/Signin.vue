@@ -9,7 +9,7 @@
                 required
             >
             <button @click="doLogin" class="login-button">
-                Login
+                🚀
             </button>
         </div>
     </div>

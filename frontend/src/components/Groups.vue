@@ -91,7 +91,6 @@ export default {
 .groups-hint {
     display: block;
     text-align: center;
-    color: #666;
     margin-bottom: 15px;
 }
 

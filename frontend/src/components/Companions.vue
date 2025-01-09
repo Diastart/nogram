@@ -58,7 +58,10 @@ export default {
         },
         formatTime(timeString) {
             return new Date(timeString).toLocaleTimeString([], { 
-                hour: '2-digit', 
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
                 minute: '2-digit' 
             })
         },
@@ -93,7 +96,6 @@ export default {
 .companions-hint {
     display: block;
     text-align: center;
-    color: #666;
     margin-bottom: 15px;
 }
 
@@ -137,12 +139,10 @@ export default {
     position: absolute;
     top: 10px;      
     right: 10px;
-    color: #666;
     font-size: 0.8em;
 }
 
 .message-preview {
-    color: #666;
     font-size: 0.9em;
     white-space: nowrap;
     overflow: hidden;
