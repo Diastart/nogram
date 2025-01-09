@@ -99,28 +99,36 @@ export default {
                 const response = await axios.get('api/conversations', {params:{companionId:companion.id}})
                 await axios.put('api/messages', {messageId: message.id, conversationId: response.data.conversationId, senderName: message.senderName});
                 console.log('Redirected');
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
             }catch(error){console.log(error)}
         },
         async deleteMessage(message) {
             try{
                 await axios.delete('api/messages', {params:{messageId: message.id}});
                 console.log('Deleted');
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
             }catch(error){console.log(error)}
         },
         async addReaction(message, emoji) {
             try {
                 await axios.put('api/reactions', {messageId: message.id, reaction: emoji});
                 this.showEmojis = false;
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
             } catch(error) {console.log(error);}
         },
         async deleteReaction(message) {
             try {
                 await axios.delete('api/reactions', {params: {messageId: message.id}});
                 console.log('Uncommented');
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
             } catch (error) {console.log(error)}
         },
         formatTime(timeString) {
@@ -137,13 +145,13 @@ export default {
             try {
                 await axios.post('api/messages', {
                     conversationId: this.userStore.conversationId,
-                    content: `👉${message.content}👇\n${this.responseText}`
+                    content: `🪅Respond to ${message.content}🪅: ${this.responseText}`
                 });
                 this.responseText = '';
-                this.userStore.fetchMessages();
-            } catch(error) {
-                console.log(error);
-            }
+                await this.userStore.fetchMessages();
+                await this.userStore.fetchLatestMessages();
+                await this.userStore.fetchLatestMessagesOfGroups();
+            } catch(error) {console.log(error);}
         },
     }
 }
@@ -180,6 +188,8 @@ export default {
 .time {
    font-size: 0.9em;
    margin-top: 5px;
+   background-color: #706F6F;
+   border-radius: 10px;
 }
 
 .options-popup {

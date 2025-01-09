@@ -396,7 +396,7 @@ func handleputMessages(response http.ResponseWriter, request *http.Request) {
     }
 
     _, err = db.Exec("INSERT INTO Messages (sender_id, conversation_id, content) VALUES (?, ?, ?)",
-        myId, messageRequest.ConversationId, "*Redirected " + messageRequest.SenderName + "* " + originalMessage.Content)
+        myId, messageRequest.ConversationId, "🪁Redirected🪁 " + messageRequest.SenderName + ": " + originalMessage.Content)
     if err != nil {
         http.Error(response, "error creating message", http.StatusInternalServerError)
         return

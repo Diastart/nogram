@@ -38,7 +38,8 @@ import { useUserInformation } from '@/stores/myStore';
                         console.log(token)
                         localStorage.setItem('token', token)
                         localStorage.setItem('username', this.username)
-                        this.$router.push('/chat');
+                        await this.$router.push('/chat');
+                        location.reload();
                     }catch (error){console.log(error)}
                 }else {console.log('Please type a name')}
             },
