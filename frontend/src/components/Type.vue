@@ -9,6 +9,17 @@
         <button @click="sendMessage" class="send-button">
             🚀
         </button>
+        <hr>
+        <input 
+            type="file"
+            ref="photoInput"
+            @change="sendPhoto"
+            accept="image/*"
+            style="display: none"
+        >
+        <button @click="$refs.photoInput.click()" class="send-button">
+            📷
+        </button>
     </div>
 </template>
 
@@ -36,6 +47,23 @@ export default {
                 await this.userStore.fetchLatestMessages();
                 await this.userStore.fetchLatestMessagesOfGroups();
             }catch(error){console.log(error)}
+        },
+        async sendPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('conversationId', this.userStore.conversationId);
+            if (this.message) {
+                formData.append('content', this.message);
+                this.message = '';
+            }
+
+            try {
+                await axios.post('api/messages/photo', formData);
+                this.userStore.fetchMessages();
+            } catch (error) {console.error('Error uploading photo:', error);}
         }
     }
 }

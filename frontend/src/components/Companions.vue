@@ -48,8 +48,7 @@ export default {
                 this.userStore.conversationPhoto = response.data.conversationPhoto
                 this.userStore.conversationName = companion.username
                 this.userStore.members = [];
-                console.log('conversation id ' + this.userStore.conversationId)
-                console.log('url to conversation photo ' + this.userStore.conversationPhoto)
+                console.log('conversation id: ' + this.userStore.conversationId)
                 await this.userStore.fetchMessages();
             }catch(error){console.log(error)}
         },

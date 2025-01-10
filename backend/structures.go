@@ -21,11 +21,13 @@ type Message struct {
     SenderName string    `json:"senderName"`
     Reaction   string    `json:"reaction"`
     Checkmark  string    `json:"checkmark"`
+    Photo    string `json:"photo"`
 }
 
 type MessageRequest struct {
     ConversationId int    `json:"conversationId"`
     Content        string `json:"content"`
+    Photo          string `json:"photo"`
 }
 
 type GroupRequest struct {
@@ -43,6 +45,7 @@ type RedirectRequest struct {
     MessageId      int `json:"messageId"`
     ConversationId int `json:"conversationId"`
     SenderName string  `json:"senderName"`
+    Photo          string `json:"photo"`
 }
 
 type User struct {
@@ -84,4 +87,9 @@ type UsernameRequest struct {
 type ProfileResponse struct {
     Username string `json:"username"`
     Photo    string `json:"photo"`
+}
+
+type GroupNameRequest struct {
+    Groupname      string `json:"groupname"`
+    ConversationId int    `json:"conversationId"`
 }

@@ -1,5 +1,5 @@
 <template>
-    <div v-if="userStore.members && userStore.members.length > 0" class="members-container">
+    <div class="members-container">
         <h5>Members of the group</h5>
         <div class="members-list">
             <div v-for="member in userStore.members" 

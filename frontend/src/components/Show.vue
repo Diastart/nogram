@@ -12,6 +12,14 @@
                         <span v-if="message.reaction" class="reaction">{{ message.reaction }}</span>
                     </div>
                     <hr>
+                    <div v-if="message.photo">
+                        <img  
+                            :src="message.photo" 
+                            alt="Message photo"
+                            style="max-width: 200px; margin-top: 5px;"
+                        >
+                        <hr>
+                    </div>
                     <div class="time">{{ formatTime(message.time) }}</div>
                 </div>
 
@@ -97,7 +105,7 @@ export default {
         async redirectMessage(message, companion) {
             try{
                 const response = await axios.get('api/conversations', {params:{companionId:companion.id}})
-                await axios.put('api/messages', {messageId: message.id, conversationId: response.data.conversationId, senderName: message.senderName});
+                await axios.put('api/messages', {messageId: message.id, conversationId: response.data.conversationId, senderName: message.senderName, photo: message.photo});
                 console.log('Redirected');
                 await this.userStore.fetchMessages();
                 await this.userStore.fetchLatestMessages();
@@ -143,10 +151,7 @@ export default {
         async respondToMessage(message) {
             if (!this.responseText) return;
             try {
-                await axios.post('api/messages', {
-                    conversationId: this.userStore.conversationId,
-                    content: `🪅Respond to ${message.content}🪅: ${this.responseText}`
-                });
+                await axios.post('api/messages', {conversationId: this.userStore.conversationId, content: `🪅Respond to ${message.content}🪅: ${this.responseText}`, photo: message.photo});
                 this.responseText = '';
                 await this.userStore.fetchMessages();
                 await this.userStore.fetchLatestMessages();

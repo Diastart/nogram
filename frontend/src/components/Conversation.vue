@@ -13,10 +13,35 @@
             </div>
         </div>
     </div>
-    <Members/>
+    <div v-if="userStore.members && userStore.members.length > 0">
+        <input 
+            v-model="newGroupName" 
+            placeholder="New groupname..." 
+            class="groupname-input"
+        >
+        <button @click="setGroupName" class="update-button">
+            Update
+        </button>
+
+        <hr>
+
+        <button @click="$refs.GroupPhotoInput.click()" class="change-button">
+            Change Photo
+        </button>
+        <input 
+            type="file" 
+            ref="GroupPhotoInput" 
+            @change="setGroupPhoto" 
+            accept="image/*" 
+            style="display: none"
+        >
+        <hr>
+        <Members/>
+    </div>
 </template>
 
 <script>
+import axios from 'axios'
 import { useUserInformation } from '@/stores/myStore';
 import Members from './Members.vue';
 export default {
@@ -25,8 +50,36 @@ export default {
         const userStore = useUserInformation();
         return {userStore};
     },
+    data(){
+        return {
+            newGroupName: '',
+        }
+    },
     components: {
         Members,
+    },
+    methods: {
+        async setGroupName(){
+            if (!this.newGroupName) return;
+            try {
+                const response = await axios.put('api/groups/groupname', { groupname: this.newGroupName, conversationId: this.userStore.conversationId });
+                this.userStore.conversationName = response.data.groupname;
+                this.newGroupName = '';
+            } catch (error) {console.log(error)}
+        },
+        async setGroupPhoto(event){
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('conversationId', this.userStore.conversationId);
+
+            try {
+                const response = await axios.put('api/groups/photo', formData);
+                this.userStore.conversationPhoto = response.data.photo;
+            } catch (error) {console.log(error)}
+        }
     }
 }
 </script>
@@ -64,5 +117,30 @@ export default {
 .chat-title {
    color: white;
    font-size: 18px;
+}
+
+.change-button, .update-button {
+    padding: 10px 20px;
+    background-color: #09BC8A;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: opacity 0.2s ease;
+    width: 250px;
+}
+
+.change-button:hover, .update-button:hover {
+    opacity: 0.9;
+}
+
+.groupname-input {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    font-size: 1em;
+    width: 250px;
+    height: 42px;
 }
 </style>

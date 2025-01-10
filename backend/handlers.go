@@ -281,7 +281,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 	}
 
 	rows, err := db.Query(`
-        SELECT id, sender_id, content, time, reaction, checkmark
+        SELECT id, sender_id, content, time, reaction, checkmark, photo
         FROM Messages 
         WHERE conversation_id = ?
         ORDER BY time ASC`,
@@ -304,11 +304,32 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 		var msg Message
 		var timeStr string
 		var reaction sql.NullString
-		if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &timeStr, &reaction, &msg.Checkmark); err != nil {
+		var content sql.NullString
+		var photo sql.NullString
+
+		if err := rows.Scan(&msg.Id, &msg.SenderId, &content, &timeStr, &reaction, &msg.Checkmark, &photo); err != nil {
 			tx.Rollback()
 			log.Printf("Scan error: %v", err)
 			http.Error(response, "error scanning messages", http.StatusInternalServerError)
 			return
+		}
+
+		if content.Valid {
+			msg.Content = content.String
+		} else {
+			msg.Content = ""
+		}
+
+		if photo.Valid {
+			msg.Photo = photo.String
+		} else {
+			msg.Photo = ""
+		}
+
+		if reaction.Valid {
+			msg.Reaction = reaction.String
+		} else {
+			msg.Reaction = ""
 		}
 
 		if msg.SenderId != currentUserId && msg.Checkmark == "✓" {
@@ -322,12 +343,6 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 			msg.Checkmark = "✓✓"
 		}
 
-		if reaction.Valid {
-			msg.Reaction = reaction.String
-		} else {
-			msg.Reaction = ""
-		}
-
 		t, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
 			log.Printf("Time parse error: %v", err)
@@ -336,7 +351,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 		}
 		msg.Time = t.Format(time.RFC3339)
 
-		err = db.QueryRow("SELECT username FROM Users WHERE id = ?", msg.SenderId).Scan(&msg.SenderName)
+		err = tx.QueryRow("SELECT username FROM Users WHERE id = ?", msg.SenderId).Scan(&msg.SenderName)
 		if err != nil {
 			log.Printf("Username query error: %v", err)
 			http.Error(response, "error getting sender name", http.StatusInternalServerError)
@@ -368,9 +383,9 @@ func handlepostMessages(response http.ResponseWriter, request *http.Request) {
 	}
 
 	_, err = db.Exec(`
-        INSERT INTO Messages (sender_id, conversation_id, content) 
-        VALUES (?, ?, ?)`,
-		senderId, messageRequest.ConversationId, messageRequest.Content)
+        INSERT INTO Messages (sender_id, conversation_id, content, photo) 
+        VALUES (?, ?, ?, ?)`,
+		senderId, messageRequest.ConversationId, messageRequest.Content, messageRequest.Photo)
 	if err != nil {
 		http.Error(response, "error creating message", http.StatusInternalServerError)
 		return
@@ -393,15 +408,16 @@ func handleputMessages(response http.ResponseWriter, request *http.Request) {
 	}
 
 	var originalMessage Message
-	err = db.QueryRow("SELECT content FROM Messages WHERE id = ?",
-		messageRequest.MessageId).Scan(&originalMessage.Content)
+	err = db.QueryRow("SELECT content, photo FROM Messages WHERE id = ?",
+		messageRequest.MessageId).Scan(&originalMessage.Content, &originalMessage.Photo)
 	if err != nil {
+		log.Printf("Database error: %v", err)
 		http.Error(response, "error finding message", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO Messages (sender_id, conversation_id, content) VALUES (?, ?, ?)",
-		myId, messageRequest.ConversationId, "🪁Redirected🪁 "+messageRequest.SenderName+": "+originalMessage.Content)
+	_, err = db.Exec("INSERT INTO Messages (sender_id, conversation_id, content, photo) VALUES (?, ?, ?, ?)",
+		myId, messageRequest.ConversationId, "🪁Redirected🪁 "+messageRequest.SenderName+": "+originalMessage.Content, messageRequest.Photo)
 	if err != nil {
 		http.Error(response, "error creating message", http.StatusInternalServerError)
 		return
@@ -539,6 +555,50 @@ func handlegetGroups(response http.ResponseWriter, request *http.Request) {
 
 	response.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(response).Encode(groups)
+}
+
+func handleGroupsPhoto(response http.ResponseWriter, request *http.Request) {
+	err := request.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(response, "error parsing form", http.StatusBadRequest)
+		return
+	}
+
+	conversationId := request.FormValue("conversationId")
+
+	file, fileHeader, err := request.FormFile("photo")
+	if err != nil {
+		http.Error(response, "error getting photo", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	fileBytes := make([]byte, fileHeader.Size)
+	if _, err = file.Read(fileBytes); err != nil {
+		http.Error(response, "error reading file", http.StatusInternalServerError)
+		return
+	}
+
+	photoBase64 := base64.StdEncoding.EncodeToString(fileBytes)
+	photoURL := fmt.Sprintf("data:%s;base64,%s", fileHeader.Header.Get("Content-Type"), photoBase64)
+
+	var groupId int
+	err = db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", conversationId).Scan(&groupId)
+	if err != nil {
+		http.Error(response, "error getting group id", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.Exec("UPDATE `Groups` SET photo = ? WHERE id = ?", photoURL, groupId)
+	if err != nil {
+		http.Error(response, "error updating group photo", http.StatusInternalServerError)
+		return
+	}
+
+	response.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(response).Encode(map[string]string{
+        "photo": photoURL,
+    })
 }
 
 func handleCandidates(response http.ResponseWriter, request *http.Request) {
@@ -842,57 +902,69 @@ func handleProfileUsername(response http.ResponseWriter, request *http.Request) 
 }
 
 func handleProfilePhoto(response http.ResponseWriter, request *http.Request) {
+	// Ensures only PUT requests are accepted for photo updates
 	if request.Method != http.MethodPut {
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Get user ID from the authentication token
 	userId, err := getUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
+	// Parse the multipart form data, limiting file size to 10MB
 	err = request.ParseMultipartForm(10 << 20) // 10 MB max
 	if err != nil {
 		http.Error(response, "error parsing multipart form", http.StatusBadRequest)
 		return
 	}
 
+	// Get the file from the form field named "photo"
 	file, fileHeader, err := request.FormFile("photo")
 	if err != nil {
 		http.Error(response, "error getting photo from form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Ensure file is closed after function completes
 	defer file.Close()
 
+	// Read the entire file into memory as bytes
 	fileBytes := make([]byte, fileHeader.Size)
 	if _, err = file.Read(fileBytes); err != nil {
 		http.Error(response, "error reading file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Verify that the uploaded file is an image
 	contentType := fileHeader.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "image/") {
 		http.Error(response, "file type not supported", http.StatusBadRequest)
 		return
 	}
 
+	// Convert the image to a base64 string for storage
 	photoBase64 := base64.StdEncoding.EncodeToString(fileBytes)
+	// Create a data URL that can be used directly in HTML <img> tags
 	photoURL := fmt.Sprintf("data:%s;base64,%s", contentType, photoBase64)
 
+	// Update the user's photo in the database
 	result, err := db.Exec("UPDATE Users SET photo = ? WHERE id = ?", photoURL, userId)
 	if err != nil {
 		http.Error(response, "error updating photo in database: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Verify that the update was successful and affected exactly one row
 	rowsAffected, err := result.RowsAffected()
 	if err != nil || rowsAffected == 0 {
 		http.Error(response, "no user found or no update made", http.StatusInternalServerError)
 		return
 	}
 
+	// Return success status
 	response.WriteHeader(http.StatusOK)
 }
 
@@ -914,3 +986,82 @@ func handleProfile(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(response).Encode(profile)
 }
+
+func handleMessagesPhoto(response http.ResponseWriter, request *http.Request) {
+	// Get user ID from token
+	userId, err := getUserId(request)
+	if err != nil {
+		http.Error(response, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Parse multipart form
+	err = request.ParseMultipartForm(10 << 20)
+	if err != nil {
+		http.Error(response, "error parsing form", http.StatusBadRequest)
+		return
+	}
+
+	// Get conversation ID
+	conversationId := request.FormValue("conversationId")
+	content := request.FormValue("content")
+
+	// Get the file
+	file, fileHeader, err := request.FormFile("photo")
+	if err != nil {
+		http.Error(response, "error getting photo", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read file bytes
+	fileBytes := make([]byte, fileHeader.Size)
+	if _, err = file.Read(fileBytes); err != nil {
+		http.Error(response, "error reading file", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to base64
+	photoBase64 := base64.StdEncoding.EncodeToString(fileBytes)
+	photoURL := fmt.Sprintf("data:%s;base64,%s", fileHeader.Header.Get("Content-Type"), photoBase64)
+
+	// Insert into database
+	_, err = db.Exec(
+		"INSERT INTO Messages (sender_id, conversation_id, photo, content) VALUES (?, ?, ?, ?)",
+		userId, conversationId, photoURL, content,
+	)
+	if err != nil {
+		http.Error(response, "error saving message", http.StatusInternalServerError)
+		return
+	}
+
+	response.WriteHeader(http.StatusCreated)
+}
+
+func handleGroupsGroupName(response http.ResponseWriter, request *http.Request) {
+	var groupNameRequest GroupNameRequest
+	if err := json.NewDecoder(request.Body).Decode(&groupNameRequest); err != nil {
+		http.Error(response, err.Error(), http.StatusBadRequest)
+		return
+	}
+ 
+	var groupId int
+	err := db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", 
+		groupNameRequest.ConversationId).Scan(&groupId)
+	if err != nil {
+		http.Error(response, "error getting group id", http.StatusInternalServerError)
+		return
+	}
+ 
+	_, err = db.Exec("UPDATE `Groups` SET groupname = ? WHERE id = ?", 
+		groupNameRequest.Groupname, groupId)
+	if err != nil {
+		http.Error(response, "error updating group name", http.StatusInternalServerError)
+		return
+	}
+ 
+	response.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(response).Encode(map[string]string{
+		"groupname": groupNameRequest.Groupname,
+	})
+ }
