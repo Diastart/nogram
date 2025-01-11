@@ -62,9 +62,10 @@ export default {
 
             try {
                 await axios.post('api/messages/photo', formData);
-                this.userStore.fetchMessages();
+                await this.userStore.fetchMessages();
                 await this.userStore.fetchLatestMessages();
                 await this.userStore.fetchLatestMessagesOfGroups();
+                event.target.value = '';
             } catch (error) {console.error('Error uploading photo:', error);}
         }
     }
