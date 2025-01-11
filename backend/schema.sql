@@ -40,6 +40,9 @@ CREATE TABLE Messages (
     conversation_id INTEGER NOT NULL,
     content TEXT NOT NULL,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reaction TEXT,
+    checkmark TEXT DEFAULT '✓',
+    photo TEXT,
     FOREIGN KEY (sender_id) REFERENCES Users(id),
     FOREIGN KEY (conversation_id) REFERENCES Conversations(id)
 );

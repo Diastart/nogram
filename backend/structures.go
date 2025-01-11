@@ -21,7 +21,7 @@ type Message struct {
     SenderName string    `json:"senderName"`
     Reaction   string    `json:"reaction"`
     Checkmark  string    `json:"checkmark"`
-    Photo    string `json:"photo"`
+    Photo      string    `json:"photo"`
 }
 
 type MessageRequest struct {

@@ -70,7 +70,7 @@ export default {
             return [...this.userStore.companions].sort((a, b) => {
                 const msgA = this.getLatestMessage(a.id)
                 const msgB = this.getLatestMessage(b.id)
-                if (!msgA) return 1  // Put companions with no messages at the end
+                if (!msgA) return 1 
                 if (!msgB) return -1
                 return new Date(msgB.time) - new Date(msgA.time)
             })
