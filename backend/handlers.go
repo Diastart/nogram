@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
 
 	"github.com/google/uuid"
 )
@@ -26,6 +27,11 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	if matched, _ := regexp.MatchString(`^[A-Za-z0-9_]{3,16}$`, req.Username); !matched {
+        http.Error(response, "username does not satisfy constraints", http.StatusBadRequest)
+        return
+    }
 
 	var existingToken string
 	err := db.QueryRow("SELECT token FROM Users WHERE username = ?", req.Username).Scan(&existingToken)
