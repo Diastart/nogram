@@ -14,8 +14,7 @@ You'll need Docker installed on your computer:
 
 1. Clone this repository
 2. Run `./start.sh`
-3. Open http://localhost:5173 in your browser
-4. Enjoy! 🎉
+3. Enjoy! 🎉
 
 Want a fresh start? Just run `./reset.sh`
 
