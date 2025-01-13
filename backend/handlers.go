@@ -1070,4 +1070,10 @@ func handleGroupsGroupName(response http.ResponseWriter, request *http.Request) 
 	json.NewEncoder(response).Encode(map[string]string{
 		"groupname": groupNameRequest.Groupname,
 	})
- }
+}
+
+func handleHealth(response http.ResponseWriter, request *http.Request) {
+    response.Header().Set("Content-Type", "application/json")
+    response.WriteHeader(http.StatusOK)
+    response.Write([]byte(`{"status": "ok"}`))
+}

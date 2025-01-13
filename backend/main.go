@@ -9,6 +9,7 @@ import (
 func main() {
 	initDB()
 	defer db.Close()
+	http.HandleFunc("/api/health", enableCors(handleHealth))
 	http.HandleFunc("/api/profile/photo", enableCors(handleProfilePhoto))
 	http.HandleFunc("/api/profile/username", enableCors(handleProfileUsername))
 	http.HandleFunc("/api/profile", enableCors(handleProfile))
