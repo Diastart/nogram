@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: WASA API
-  description: Web Application for Social Advancement - A comprehensive platform for social messaging and group communication
+  description: Nogram is Web Application for Social Advancement - A comprehensive platform for social messaging and group communication
   version: "1.0.0"
 
 tags:
