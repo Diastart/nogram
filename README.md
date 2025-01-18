@@ -10,13 +10,15 @@ You'll need Docker installed on your computer:
 - [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
 - [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/)
 
+You should run Docker desktop before launching!!!
+
 ## Getting Started
 
 1. Clone this repository
 2. Run `./start.sh`
 3. Enjoy! 🎉
 
-Want a fresh start? Just run `./reset.sh`
+Want a fresh database? Just run `./reset.sh`
 
 That's it! Happy messaging! 💬
 
