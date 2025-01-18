@@ -1,8 +1,20 @@
 openapi: 3.0.3
 info:
   title: WASA API
-  description: Web Application for Social Advancement
+  description: Web Application for Social Advancement - A comprehensive platform for social messaging and group communication
   version: "1.0.0"
+
+tags:
+  - name: login
+    description: Authentication and user session management operations
+  - name: profile
+    description: User profile management operations
+  - name: conversations
+    description: Conversation management and interaction endpoints
+  - name: messages
+    description: Message creation, modification, and deletion operations
+  - name: groups
+    description: Group management and member operations
 
 servers:
   - url: http://localhost:8080/api
@@ -10,285 +22,568 @@ servers:
 
 paths:
   /session:
-   post:
-    tags: ["login"]
-    summary: Logs in the user
-    description: |
-      If the user does not exist, it will be created,
-      and an identifier is returned.
-      If the user exists, the user identifier is returned.
-    operationId: doLogin
-    requestBody:
-      description: User details
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              name:
-                type: string
-                example: Maria
-                pattern: '^.+?$'
-                minLength: 3
-                maxLength: 16
-            required: ["name"]
-    responses:
-      '201':
-        description: User log-in action successful
+    post:
+      tags: ["login"]
+      summary: Logs in the user
+      description: |
+        Authenticates a user with the system. If the provided username doesn't exist,
+        a new user account is created automatically. Returns a unique identifier that
+        should be used for subsequent authenticated requests.
+      operationId: doLogin
+      requestBody:
+        required: true
+        description: User credentials for authentication
         content:
           application/json:
             schema:
               type: object
+              description: User login information
               properties:
-                identifier:
-                  # change if you decide to use an integer
-                  # or any other type of identifier
+                name:
                   type: string
-                  example: "abcdef012345"
+                  description: Username for authentication or registration
+                  example: Maria
+                  pattern: '^[a-zA-Z0-9_-]+$'
+                  minLength: 3
+                  maxLength: 16
+              required: ["name"]
+      responses:
+        '201':
+          description: User successfully logged in or registered
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Authentication response containing user identifier
+                properties:
+                  identifier:
+                    type: string
+                    description: Unique user identifier for authentication
+                    example: "abcdef012345"
+                    pattern: '^[a-f0-9]{12}$'
+                    minLength: 12
+                    maxLength: 12
+                required: ["identifier"]
+        '400':
+          description: Invalid request format or username
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/profile/username:
     put:
       tags: ["profile"]
       summary: Update user's username
+      description: |
+        Updates the authenticated user's username. The new username must meet
+        the system's requirements for length and character set.
       operationId: setMyUserName
       requestBody:
         required: true
+        description: New username information
         content:
           application/json:
             schema:
               type: object
+              description: Username update request
               properties:
                 username:
                   type: string
+                  description: New username for the user
+                  pattern: '^[a-zA-Z0-9_-]+$'
+                  minLength: 3
+                  maxLength: 16
+              required: ["username"]
       responses:
         '200':
-          description: Username updated successfully
+          description: Username successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid username format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/conversations:
     get:
       tags: ["conversations"]
       summary: Get user's conversations
+      description: |
+        Retrieves all conversations for the authenticated user, including both
+        direct messages and group conversations.
       operationId: getMyConversations
       responses:
         '200':
-          description: List of conversations
+          description: List of user's conversations
           content:
             application/json:
               schema:
                 type: array
+                description: Array of conversation objects
                 items:
                   type: object
+                  description: Conversation details
                   properties:
                     conversationId:
                       type: integer
+                      description: Unique identifier for the conversation
+                      minimum: 1
                     conversationPhoto:
                       type: string
+                      description: URL or base64 encoded photo for the conversation
+                      pattern: '^(http|https|data):.*$'
+                  required: ["conversationId"]
+                minItems: 0
+                maxItems: 1000
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/conversations/{conversationId}:
+    parameters:
+      - name: conversationId
+        in: path
+        description: Unique identifier of the conversation
+        required: true
+        schema:
+          type: integer
+          minimum: 1
     get:
       tags: ["conversations"]
       summary: Get specific conversation
+      description: |
+        Retrieves detailed information about a specific conversation,
+        including messages and participants.
       operationId: getConversation
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '200':
-          description: Conversation details
+          description: Detailed conversation information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/messages:
     post:
       tags: ["messages"]
       summary: Send a new message
+      description: |
+        Creates and sends a new message in a specified conversation.
+        The message can contain text content.
       operationId: sendMessage
       requestBody:
         required: true
+        description: Message content and destination
         content:
           application/json:
             schema:
               type: object
+              description: Message creation request
               properties:
                 conversationId:
                   type: integer
+                  description: Target conversation identifier
+                  minimum: 1
                 content:
                   type: string
+                  description: Text content of the message
+                  minLength: 1
+                  maxLength: 1000
+              required: ["conversationId", "content"]
       responses:
         '201':
-          description: Message sent successfully
+          description: Message successfully sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid message content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     put:
       tags: ["messages"]
       summary: Forward a message
+      description: |
+        Forwards an existing message to another conversation while maintaining
+        the original content.
       operationId: forwardMessage
       requestBody:
         required: true
+        description: Message forwarding details
         content:
           application/json:
             schema:
               type: object
+              description: Message forwarding request
               properties:
                 messageId:
                   type: integer
+                  description: ID of the message to forward
+                  minimum: 1
                 conversationId:
                   type: integer
+                  description: Target conversation identifier
+                  minimum: 1
+              required: ["messageId", "conversationId"]
       responses:
         '200':
-          description: Message forwarded successfully
+          description: Message successfully forwarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Original message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/reactions:
     put:
       tags: ["messages"]
-      summary: Add comment to message
+      summary: Add reaction to message
+      description: |
+        Adds a reaction (emoji or comment) to an existing message.
       operationId: commentMessage
       requestBody:
         required: true
+        description: Reaction details
         content:
           application/json:
             schema:
               type: object
+              description: Message reaction request
               properties:
                 messageId:
                   type: integer
+                  description: ID of the message to react to
+                  minimum: 1
                 reaction:
                   type: string
+                  description: Reaction content (emoji or text)
+                  minLength: 1
+                  maxLength: 50
+                  pattern: '^[\p{L}\p{N}\p{P}\p{S}]+$'
+              required: ["messageId", "reaction"]
       responses:
         '200':
-          description: Comment added successfully
+          description: Reaction successfully added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
 
     delete:
       tags: ["messages"]
-      summary: Remove comment from message
+      summary: Remove reaction from message
+      description: |
+        Removes a previously added reaction from a message.
       operationId: uncommentMessage
       parameters:
         - name: messageId
           in: query
+          description: ID of the message to remove reaction from
           required: true
           schema:
             type: integer
+            minimum: 1
       responses:
         '200':
-          description: Comment removed successfully
+          description: Reaction successfully removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Message or reaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/messages/{messageId}:
+    parameters:
+      - name: messageId
+        in: path
+        description: ID of the message to delete
+        required: true
+        schema:
+          type: integer
+          minimum: 1
     delete:
       tags: ["messages"]
       summary: Delete a message
+      description: |
+        Permanently removes a message from a conversation. Only the message
+        author can perform this operation.
       operationId: deleteMessage
-      parameters:
-        - name: messageId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '200':
-          description: Message deleted successfully
+          description: Message successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/groups/{groupId}/members:
+    parameters:
+      - name: groupId
+        in: path
+        description: ID of the group to modify
+        required: true
+        schema:
+          type: integer
+          minimum: 1
     post:
       tags: ["groups"]
       summary: Add member to group
+      description: |
+        Adds a new member to an existing group. Requires appropriate permissions.
       operationId: addToGroup
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '201':
-          description: Member added successfully
+          description: Member successfully added to group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags: ["groups"]
       summary: Leave group
+      description: |
+        Removes the current user from the specified group.
       operationId: leaveGroup
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          schema:
-            type: integer
       responses:
         '200':
-          description: Successfully left group
+          description: Successfully left the group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/groups/{groupId}/name:
+    parameters:
+      - name: groupId
+        in: path
+        description: ID of the group to rename
+        required: true
+        schema:
+          type: integer
+          minimum: 1
     put:
       tags: ["groups"]
       summary: Update group name
+      description: |
+        Updates the name of an existing group. Requires appropriate permissions.
       operationId: setGroupName
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
+        description: New group name details
         content:
           application/json:
             schema:
               type: object
+              description: Group name update request
               properties:
                 groupname:
                   type: string
+                  description: New name for the group
+                  pattern: '^[a-zA-Z0-9_\s-]+$'
+                  minLength: 3
+                  maxLength: 50
+              required: ["groupname"]
       responses:
         '200':
-          description: Group name updated successfully
+          description: Group name successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/profile/photo:
     put:
       tags: ["profile"]
       summary: Update user's photo
+      description: |
+        Updates the profile photo for the authenticated user.
+        Accepts image files in common formats.
       operationId: setMyPhoto
       requestBody:
         required: true
+        description: New profile photo
         content:
           multipart/form-data:
             schema:
               type: object
+              description: Photo upload request
               properties:
                 photo:
                   type: string
+                  description: Binary content of the photo file
                   format: binary
+              required: ["photo"]
       responses:
         '200':
-          description: Photo updated successfully
+          description: Photo successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid file format or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/groups/{groupId}/photo:
+    parameters:
+      - name: groupId
+        in: path
+        description: ID of the group to update photo
+        required: true
+        schema:
+          type: integer
+          minimum: 1
     put:
       tags: ["groups"]
       summary: Update group photo
+      description: |
+        Updates the photo for a specific group. Requires appropriate permissions.
       operationId: setGroupPhoto
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
+        description: New group photo
         content:
           multipart/form-data:
             schema:
               type: object
+              description: Photo upload request
               properties:
                 photo:
                   type: string
+                  description: Binary content of the photo file
                   format: binary
+              required: ["photo"]
       responses:
         '200':
-          description: Group photo updated successfully
+          description: Group photo successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      description: Standard error response
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+      required: ["error"]
 
-security:
-  - BearerAuth: []
+    SuccessResponse:
+      type: object
+      description: Standard success response
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Operation completed successfully"
+
+    MessageResponse:
+      type: object
+      description: Response for message operations
+      properties:
+        messageId:
+          type: integer
+          description: ID of the created or modified message
+          minimum: 1
+        timestamp:
+          type: string
+          description: Timestamp of the message operation
+          format: date-time
+      required: ["messageId", "timestamp"]
+
+    ConversationDetail:
+      type: object
+      description: Detailed conversation information
+      properties:
+        id:
+          type: integer
+          description: Unique identifier of the conversation
+          minimum: 1
+        name:
+          type: string
+          description: Name of the conversation or group
+          minLength: 1
+          maxLength: 50
+        participants:
+          type: array
+          description: List of conversation participants
+          items:
+            type: object
+            description: Participant information
+            properties:
+              id:
+                type: integer
+                description: User ID
+                minimum: 1
+              name:
+                type: string
+                description: Username
+          minItems: 2
+          maxItems: 100
+      

@@ -1,6 +1,20 @@
 #!/bin/bash
 
-# Print cool ASCII art in green color
+# Function to cleanup on exit
+cleanup() {
+    echo -e "\n\033[32m╔══════════════════════════════════════╗"
+    echo -e "║      NOGRAM Docker Shutting Down      ║"
+    echo -e "╚══════════════════════════════════════╝\033[0m"
+    docker-compose down
+    exit 0
+}
+
+# Set up trap for SIGINT (Ctrl+C)
+trap cleanup SIGINT
+
+# Clear screen
+clear
+
 echo -e "\033[32m
 ███╗   ██╗ ██████╗  ██████╗ ██████╗  █████╗ ███╗   ███╗
 ████╗  ██║██╔═══██╗██╔════╝ ██╔══██╗██╔══██╗████╗ ████║
@@ -10,71 +24,14 @@ echo -e "\033[32m
 ╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝
 \033[0m"
 
-# Function to cleanup on exit
-cleanup() {
-    echo -e "\n👋 Shutting down Nogram..."
-    docker-compose down
-    echo "✨ Thanks for using Nogram! ✨"
-    exit 0
-}
+# Print header
+echo -e "\033[32m╔══════════════════════════════════════╗"
+echo -e "║         NOGRAM Docker Starter         ║"
+echo -e "╚══════════════════════════════════════╝"
+echo -e "║                                      ║"
+echo -e "║  Starting containers...              ║"
+echo -e "║  Press Ctrl+C to stop gracefully     ║"
+echo -e "╚══════════════════════════════════════╝\033[0m"
 
-# Register the cleanup function for SIGINT (Ctrl+C)
-trap cleanup SIGINT
-
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed!"
-    echo "Please install Docker first:"
-    echo "🔗 https://www.docker.com/products/docker-desktop/"
-    exit 1
-fi
-
-# Check if Docker is running
-if ! docker info &> /dev/null; then
-    echo "❌ Docker is not running!"
-    echo "Please start Docker Desktop and try again"
-    exit 1
-fi
-
-echo "🚀 Starting Nogram..."
-
-# Start the application
-docker-compose up --build -d
-
-echo "⏳ Waiting for services to be ready..."
-
-# Function to check if URL is responding
-check_url() {
-    curl -s -o /dev/null -w ''%{http_code}'' "$1"
-}
-
-# Wait for frontend to be available
-max_attempts=60
-attempt=1
-echo "Waiting for application to start..."
-while [ $attempt -le $max_attempts ]; do
-    status_code=$(check_url "http://localhost:5173")
-    if [ "$status_code" = "200" ]; then
-        echo "✅ Application is ready!"
-        
-        # Open browser based on operating system
-        case "$(uname -s)" in
-            Darwin*)    open http://localhost:5173 ;; # Mac
-            Linux*)     xdg-open http://localhost:5173 ;; # Linux
-            MINGW*)     start http://localhost:5173 ;; # Windows
-        esac
-        break
-    fi
-    echo "⏳ Starting up... (attempt $attempt/$max_attempts)"
-    sleep 2
-    attempt=$((attempt + 1))
-done
-
-if [ $attempt -gt $max_attempts ]; then
-    echo "❌ Application failed to start within the timeout period"
-    cleanup
-    exit 1
-fi
-
-# Keep the script running and showing logs
-docker-compose logs -f
+# Start Docker Compose
+docker-compose up --build

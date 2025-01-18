@@ -1,4 +1,4 @@
-package main
+package api
 
 type SessionRequest struct {
     Username string `json:"username"`

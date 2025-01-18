@@ -1,36 +1,28 @@
 services:
   frontend:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile.frontend
     ports:
       - "5173:5173"
+    environment:
+      - VITE_API_URL=http://backend:8080  # Environment variable for frontend
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
-      - nogram-network
+      - app-network
 
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile.backend
     ports:
       - "8080:8080"
     volumes:
-      - sqlite_data:/app/data
-      - ./reset.sh:/app/reset.sh
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./service/database:/app/service/database
     networks:
-      - nogram-network
-
-volumes:
-  sqlite_data:
+      - app-network
 
 networks:
-  nogram-network:
+  app-network:
     driver: bridge

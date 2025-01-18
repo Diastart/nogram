@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"database/sql"
@@ -14,9 +14,11 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
+	"nogram/service/database"
+	"nogram/cmd/auth"
 )
 
-func handleSession(response http.ResponseWriter, request *http.Request) {
+func HandleSession(response http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodPost {
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -34,7 +36,7 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
     }
 
 	var existingToken string
-	err := db.QueryRow("SELECT token FROM Users WHERE username = ?", req.Username).Scan(&existingToken)
+	err := database.DB.QueryRow("SELECT token FROM Users WHERE username = ?", req.Username).Scan(&existingToken)
 
 	if err != nil && err != sql.ErrNoRows {
 		http.Error(response, "Database error", http.StatusInternalServerError)
@@ -52,7 +54,7 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
 	token := uuid.New().String()
 	photoURL := fmt.Sprintf("https://api.dicebear.com/7.x/avataaars/svg?seed=%s", req.Username)
 
-	_, err = db.Exec("INSERT INTO Users (username, token, photo) VALUES (?, ?, ?)", req.Username, token, photoURL)
+	_, err = database.DB.Exec("INSERT INTO Users (username, token, photo) VALUES (?, ?, ?)", req.Username, token, photoURL)
 	if err != nil {
 		http.Error(response, "Error creating user", http.StatusInternalServerError)
 		return
@@ -64,8 +66,8 @@ func handleSession(response http.ResponseWriter, request *http.Request) {
 	})
 }
 
-func handleUsers(response http.ResponseWriter, request *http.Request) {
-	rows, err := db.Query("SELECT id, username FROM Users")
+func HandleUsers(response http.ResponseWriter, request *http.Request) {
+	rows, err := database.DB.Query("SELECT id, username FROM Users")
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
@@ -87,8 +89,8 @@ func handleUsers(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(users)
 }
 
-func handleDialogs(response http.ResponseWriter, request *http.Request) {
-	companion1Id, err := getUserId(request)
+func HandleDialogs(response http.ResponseWriter, request *http.Request) {
+	companion1Id, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -96,7 +98,7 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
 
 	companionUsername := request.URL.Query().Get("companion")
 	var companion2Id int
-	err = db.QueryRow("SELECT id FROM Users WHERE username = ?", companionUsername).Scan(&companion2Id)
+	err = database.DB.QueryRow("SELECT id FROM Users WHERE username = ?", companionUsername).Scan(&companion2Id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(response, "companion not found", http.StatusNotFound)
@@ -112,7 +114,7 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
 	}
 
 	var exists bool
-	err = db.QueryRow(`
+	err = database.DB.QueryRow(`
         SELECT EXISTS(
             SELECT 1 FROM Dialogs 
             WHERE (companion1Id = ? AND companion2Id = ?) 
@@ -131,7 +133,7 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	result, err := db.Exec("INSERT INTO Dialogs (companion1Id, companion2Id) VALUES (?, ?)", companion1Id, companion2Id)
+	result, err := database.DB.Exec("INSERT INTO Dialogs (companion1Id, companion2Id) VALUES (?, ?)", companion1Id, companion2Id)
 	if err != nil {
 		http.Error(response, "error creating dialog", http.StatusInternalServerError)
 		return
@@ -143,7 +145,7 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO Conversations (dialog_id) VALUES (?)", dialogId)
+	_, err = database.DB.Exec("INSERT INTO Conversations (dialog_id) VALUES (?)", dialogId)
 	if err != nil {
 		http.Error(response, "error creating conversation", http.StatusInternalServerError)
 		return
@@ -152,21 +154,21 @@ func handleDialogs(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusCreated)
 }
 
-func handleCompanions(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandleCompanions(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	rows1, err := db.Query("SELECT companion2Id FROM Dialogs WHERE companion1Id = ?", userId)
+	rows1, err := database.DB.Query("SELECT companion2Id FROM Dialogs WHERE companion1Id = ?", userId)
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
 	}
 	defer rows1.Close()
 
-	rows2, err := db.Query("SELECT companion1Id FROM Dialogs WHERE companion2Id = ?", userId)
+	rows2, err := database.DB.Query("SELECT companion1Id FROM Dialogs WHERE companion2Id = ?", userId)
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
@@ -197,7 +199,7 @@ func handleCompanions(response http.ResponseWriter, request *http.Request) {
 
 	for _, id := range companionIds {
 		var companion Companion
-		err := db.QueryRow("SELECT id, username FROM Users WHERE id = ?", id).Scan(&companion.ID, &companion.Username)
+		err := database.DB.QueryRow("SELECT id, username FROM Users WHERE id = ?", id).Scan(&companion.ID, &companion.Username)
 		if err != nil {
 			http.Error(response, "error getting companion info", http.StatusInternalServerError)
 			return
@@ -209,8 +211,8 @@ func handleCompanions(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(companions)
 }
 
-func handleConversations(response http.ResponseWriter, request *http.Request) {
-	myId, err := getUserId(request)
+func HandleConversations(response http.ResponseWriter, request *http.Request) {
+	myId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -219,7 +221,7 @@ func handleConversations(response http.ResponseWriter, request *http.Request) {
 	companionId := request.URL.Query().Get("companionId")
 
 	var dialogId int
-	err = db.QueryRow(`
+	err = database.DB.QueryRow(`
         SELECT id FROM Dialogs 
         WHERE (companion1Id = ? AND companion2Id = ?) 
         OR (companion1Id = ? AND companion2Id = ?)`,
@@ -237,14 +239,14 @@ func handleConversations(response http.ResponseWriter, request *http.Request) {
 	}
 
 	var conversationId int
-	err = db.QueryRow("SELECT id FROM Conversations WHERE dialog_id = ?", dialogId).Scan(&conversationId)
+	err = database.DB.QueryRow("SELECT id FROM Conversations WHERE dialog_id = ?", dialogId).Scan(&conversationId)
 	if err != nil {
 		http.Error(response, "error getting conversation", http.StatusInternalServerError)
 		return
 	}
 
 	var conversationPhoto string
-	err = db.QueryRow("SELECT photo FROM Users WHERE id = ?", companionId).Scan(&conversationPhoto)
+	err = database.DB.QueryRow("SELECT photo FROM Users WHERE id = ?", companionId).Scan(&conversationPhoto)
 	if err != nil {
 		http.Error(response, "error getting photo", http.StatusInternalServerError)
 		return
@@ -257,23 +259,23 @@ func handleConversations(response http.ResponseWriter, request *http.Request) {
 	})
 }
 
-func handleMessages(response http.ResponseWriter, request *http.Request) {
+func HandleMessages(response http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodGet:
-		handlegetMessages(response, request)
+		HandlegetMessages(response, request)
 	case http.MethodPost:
-		handlepostMessages(response, request)
+		HandlepostMessages(response, request)
 	case http.MethodPut:
-		handleputMessages(response, request)
+		HandleputMessages(response, request)
 	case http.MethodDelete:
-		handledeleteMessages(response, request)
+		HandledeleteMessages(response, request)
 	default:
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func handlegetMessages(response http.ResponseWriter, request *http.Request) {
-	currentUserId, err := getUserId(request)
+func HandlegetMessages(response http.ResponseWriter, request *http.Request) {
+	currentUserId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -286,7 +288,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	rows, err := db.Query(`
+	rows, err := database.DB.Query(`
         SELECT id, sender_id, content, time, reaction, checkmark, photo
         FROM Messages 
         WHERE conversation_id = ?
@@ -299,7 +301,7 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 	}
 	defer rows.Close()
 
-	tx, err := db.Begin()
+	tx, err := database.DB.Begin()
 	if err != nil {
 		http.Error(response, "error starting transaction", http.StatusInternalServerError)
 		return
@@ -375,8 +377,8 @@ func handlegetMessages(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(messages)
 }
 
-func handlepostMessages(response http.ResponseWriter, request *http.Request) {
-	senderId, err := getUserId(request)
+func HandlepostMessages(response http.ResponseWriter, request *http.Request) {
+	senderId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -388,7 +390,7 @@ func handlepostMessages(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(`
+	_, err = database.DB.Exec(`
         INSERT INTO Messages (sender_id, conversation_id, content, photo) 
         VALUES (?, ?, ?, ?)`,
 		senderId, messageRequest.ConversationId, messageRequest.Content, messageRequest.Photo)
@@ -400,8 +402,8 @@ func handlepostMessages(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusCreated)
 }
 
-func handleputMessages(response http.ResponseWriter, request *http.Request) {
-	myId, err := getUserId(request)
+func HandleputMessages(response http.ResponseWriter, request *http.Request) {
+	myId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -414,7 +416,7 @@ func handleputMessages(response http.ResponseWriter, request *http.Request) {
 	}
 
 	var originalMessage Message
-	err = db.QueryRow("SELECT content, photo FROM Messages WHERE id = ?",
+	err = database.DB.QueryRow("SELECT content, photo FROM Messages WHERE id = ?",
 		messageRequest.MessageId).Scan(&originalMessage.Content, &originalMessage.Photo)
 	if err != nil {
 		log.Printf("Database error: %v", err)
@@ -422,7 +424,7 @@ func handleputMessages(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO Messages (sender_id, conversation_id, content, photo) VALUES (?, ?, ?, ?)",
+	_, err = database.DB.Exec("INSERT INTO Messages (sender_id, conversation_id, content, photo) VALUES (?, ?, ?, ?)",
 		myId, messageRequest.ConversationId, "🪁Redirected🪁 "+messageRequest.SenderName+": "+originalMessage.Content, messageRequest.Photo)
 	if err != nil {
 		http.Error(response, "error creating message", http.StatusInternalServerError)
@@ -432,10 +434,10 @@ func handleputMessages(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusCreated)
 }
 
-func handledeleteMessages(response http.ResponseWriter, request *http.Request) {
+func HandledeleteMessages(response http.ResponseWriter, request *http.Request) {
 	messageId := request.URL.Query().Get("messageId")
 
-	_, err := db.Exec("DELETE FROM Messages WHERE id = ?", messageId)
+	_, err := database.DB.Exec("DELETE FROM Messages WHERE id = ?", messageId)
 	if err != nil {
 		http.Error(response, "error deleting message", http.StatusInternalServerError)
 		return
@@ -444,19 +446,19 @@ func handledeleteMessages(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func handleGroups(response http.ResponseWriter, request *http.Request) {
+func HandleGroups(response http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodPost:
-		handlepostGroups(response, request)
+		HandlepostGroups(response, request)
 	case http.MethodGet:
-		handlegetGroups(response, request)
+		HandlegetGroups(response, request)
 	default:
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func handlepostGroups(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandlepostGroups(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -470,7 +472,7 @@ func handlepostGroups(response http.ResponseWriter, request *http.Request) {
 
 	photoURL := fmt.Sprintf("https://api.dicebear.com/7.x/identicon/svg?seed=%s", groupRequest.GroupName)
 
-	tx, err := db.Begin()
+	tx, err := database.DB.Begin()
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
@@ -523,14 +525,14 @@ func handlepostGroups(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusCreated)
 }
 
-func handlegetGroups(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandlegetGroups(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	rows, err := db.Query("SELECT group_id FROM GroupsMembers WHERE user_id = ?", userId)
+	rows, err := database.DB.Query("SELECT group_id FROM GroupsMembers WHERE user_id = ?", userId)
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
@@ -550,7 +552,7 @@ func handlegetGroups(response http.ResponseWriter, request *http.Request) {
 	groups := []GroupResponse{}
 	for _, id := range groupIds {
 		var group GroupResponse
-		err := db.QueryRow("SELECT id, groupname, photo FROM `Groups` WHERE id = ?", id).
+		err := database.DB.QueryRow("SELECT id, groupname, photo FROM `Groups` WHERE id = ?", id).
 			Scan(&group.ID, &group.Groupname, &group.Photo)
 		if err != nil {
 			http.Error(response, "error getting group info", http.StatusInternalServerError)
@@ -563,7 +565,7 @@ func handlegetGroups(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(groups)
 }
 
-func handleGroupsPhoto(response http.ResponseWriter, request *http.Request) {
+func HandleGroupsPhoto(response http.ResponseWriter, request *http.Request) {
 	err := request.ParseMultipartForm(10 << 20)
 	if err != nil {
 		http.Error(response, "error parsing form", http.StatusBadRequest)
@@ -589,13 +591,13 @@ func handleGroupsPhoto(response http.ResponseWriter, request *http.Request) {
 	photoURL := fmt.Sprintf("data:%s;base64,%s", fileHeader.Header.Get("Content-Type"), photoBase64)
 
 	var groupId int
-	err = db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", conversationId).Scan(&groupId)
+	err = database.DB.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", conversationId).Scan(&groupId)
 	if err != nil {
 		http.Error(response, "error getting group id", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.Exec("UPDATE `Groups` SET photo = ? WHERE id = ?", photoURL, groupId)
+	_, err = database.DB.Exec("UPDATE `Groups` SET photo = ? WHERE id = ?", photoURL, groupId)
 	if err != nil {
 		http.Error(response, "error updating group photo", http.StatusInternalServerError)
 		return
@@ -607,7 +609,7 @@ func handleGroupsPhoto(response http.ResponseWriter, request *http.Request) {
     })
 }
 
-func handleCandidates(response http.ResponseWriter, request *http.Request) {
+func HandleCandidates(response http.ResponseWriter, request *http.Request) {
 	var candidateRequest CandidateRequest
 	if err := json.NewDecoder(request.Body).Decode(&candidateRequest); err != nil {
 		http.Error(response, err.Error(), http.StatusBadRequest)
@@ -615,14 +617,14 @@ func handleCandidates(response http.ResponseWriter, request *http.Request) {
 	}
 
 	var groupId int
-	err := db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?",
+	err := database.DB.QueryRow("SELECT group_id FROM Conversations WHERE id = ?",
 		candidateRequest.ConversationId).Scan(&groupId)
 	if err != nil {
 		http.Error(response, "error getting group id", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO GroupsMembers (group_id, user_id) VALUES (?, ?)",
+	_, err = database.DB.Exec("INSERT INTO GroupsMembers (group_id, user_id) VALUES (?, ?)",
 		groupId, candidateRequest.UserId)
 	if err != nil {
 		http.Error(response, "error adding member", http.StatusInternalServerError)
@@ -635,21 +637,21 @@ func handleCandidates(response http.ResponseWriter, request *http.Request) {
 	})
 }
 
-func handleMembers(response http.ResponseWriter, request *http.Request) {
+func HandleMembers(response http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodGet:
-		handlegetMembers(response, request)
+		HandlegetMembers(response, request)
 	case http.MethodDelete:
-		handledeleteMembers(response, request)
+		HandledeleteMembers(response, request)
 	default:
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func handlegetMembers(response http.ResponseWriter, request *http.Request) {
+func HandlegetMembers(response http.ResponseWriter, request *http.Request) {
 	groupId := request.URL.Query().Get("groupId")
 
-	rows, err := db.Query("SELECT user_id FROM GroupsMembers WHERE group_id = ?", groupId)
+	rows, err := database.DB.Query("SELECT user_id FROM GroupsMembers WHERE group_id = ?", groupId)
 	if err != nil {
 		http.Error(response, "database error", http.StatusInternalServerError)
 		return
@@ -665,7 +667,7 @@ func handlegetMembers(response http.ResponseWriter, request *http.Request) {
 		}
 
 		var member Member
-		err := db.QueryRow("SELECT id, username FROM Users WHERE id = ?", userId).
+		err := database.DB.QueryRow("SELECT id, username FROM Users WHERE id = ?", userId).
 			Scan(&member.ID, &member.Username)
 		if err != nil {
 			http.Error(response, "error getting member info", http.StatusInternalServerError)
@@ -678,8 +680,8 @@ func handlegetMembers(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(members)
 }
 
-func handledeleteMembers(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandledeleteMembers(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -688,14 +690,14 @@ func handledeleteMembers(response http.ResponseWriter, request *http.Request) {
 	conversationId := request.URL.Query().Get("conversationId")
 
 	var groupId int
-	err = db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?",
+	err = database.DB.QueryRow("SELECT group_id FROM Conversations WHERE id = ?",
 		conversationId).Scan(&groupId)
 	if err != nil {
 		http.Error(response, "error getting group id", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.Exec("DELETE FROM GroupsMembers WHERE group_id = ? AND user_id = ?", groupId, userId)
+	_, err = database.DB.Exec("DELETE FROM GroupsMembers WHERE group_id = ? AND user_id = ?", groupId, userId)
 	if err != nil {
 		http.Error(response, "error deleting members", http.StatusInternalServerError)
 		return
@@ -703,11 +705,11 @@ func handledeleteMembers(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func handleConversationsGroups(response http.ResponseWriter, request *http.Request) {
+func HandleConversationsGroups(response http.ResponseWriter, request *http.Request) {
 	groupId := request.URL.Query().Get("groupId")
 
 	var conversationPhoto string
-	err := db.QueryRow("SELECT photo FROM `Groups` WHERE id = ?", groupId).Scan(&conversationPhoto)
+	err := database.DB.QueryRow("SELECT photo FROM `Groups` WHERE id = ?", groupId).Scan(&conversationPhoto)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(response, "group not found", http.StatusNotFound)
@@ -718,7 +720,7 @@ func handleConversationsGroups(response http.ResponseWriter, request *http.Reque
 	}
 
 	var conversationId int
-	err = db.QueryRow("SELECT id FROM Conversations WHERE group_id = ?", groupId).Scan(&conversationId)
+	err = database.DB.QueryRow("SELECT id FROM Conversations WHERE group_id = ?", groupId).Scan(&conversationId)
 	if err != nil {
 		http.Error(response, "error getting conversation", http.StatusInternalServerError)
 		return
@@ -731,25 +733,25 @@ func handleConversationsGroups(response http.ResponseWriter, request *http.Reque
 	})
 }
 
-func handleReactions(response http.ResponseWriter, request *http.Request) {
+func HandleReactions(response http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodPut:
-		handleputReactions(response, request)
+		HandleputReactions(response, request)
 	case http.MethodDelete:
-		handledeleteReactions(response, request)
+		HandledeleteReactions(response, request)
 	default:
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func handleputReactions(response http.ResponseWriter, request *http.Request) {
+func HandleputReactions(response http.ResponseWriter, request *http.Request) {
 	var reactionRequest ReactionRequest
 	if err := json.NewDecoder(request.Body).Decode(&reactionRequest); err != nil {
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	_, err := db.Exec("UPDATE Messages SET reaction = ? WHERE id = ?",
+	_, err := database.DB.Exec("UPDATE Messages SET reaction = ? WHERE id = ?",
 		reactionRequest.Reaction, reactionRequest.MessageId)
 	if err != nil {
 		http.Error(response, "error updating reaction", http.StatusInternalServerError)
@@ -759,10 +761,10 @@ func handleputReactions(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func handledeleteReactions(response http.ResponseWriter, request *http.Request) {
+func HandledeleteReactions(response http.ResponseWriter, request *http.Request) {
 	messageId := request.URL.Query().Get("messageId")
 
-	_, err := db.Exec("UPDATE Messages SET reaction = NULL WHERE id = ?",
+	_, err := database.DB.Exec("UPDATE Messages SET reaction = NULL WHERE id = ?",
 		messageId)
 	if err != nil {
 		http.Error(response, "error updating reaction", http.StatusInternalServerError)
@@ -772,8 +774,8 @@ func handledeleteReactions(response http.ResponseWriter, request *http.Request) 
 	response.WriteHeader(http.StatusOK)
 }
 
-func handleLatestMessages(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandleLatestMessages(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -789,7 +791,7 @@ func handleLatestMessages(response http.ResponseWriter, request *http.Request) {
 
 	for _, companion := range companions {
 		var conversationId int
-		err := db.QueryRow(`
+		err := database.DB.QueryRow(`
             SELECT conversation.id 
             FROM Conversations conversation
             JOIN Dialogs dialog ON conversation.dialog_id = dialog.id
@@ -806,7 +808,7 @@ func handleLatestMessages(response http.ResponseWriter, request *http.Request) {
 
 		var latestMsg LatestMessage
 		var timeStr string
-		err = db.QueryRow(`
+		err = database.DB.QueryRow(`
             SELECT content, time
             FROM Messages
             WHERE conversation_id = ?
@@ -838,7 +840,7 @@ func handleLatestMessages(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(latestMessages)
 }
 
-func handleLatestGroupMessages(response http.ResponseWriter, request *http.Request) {
+func HandleLatestGroupMessages(response http.ResponseWriter, request *http.Request) {
 	var groups []GroupResponse
 	if err := json.NewDecoder(request.Body).Decode(&groups); err != nil {
 		http.Error(response, err.Error(), http.StatusBadRequest)
@@ -849,7 +851,7 @@ func handleLatestGroupMessages(response http.ResponseWriter, request *http.Reque
 
 	for _, group := range groups {
 		var conversationId int
-		err := db.QueryRow("SELECT id FROM Conversations WHERE group_id = ?",
+		err := database.DB.QueryRow("SELECT id FROM Conversations WHERE group_id = ?",
 			group.ID).Scan(&conversationId)
 		if err != nil {
 			continue
@@ -857,7 +859,7 @@ func handleLatestGroupMessages(response http.ResponseWriter, request *http.Reque
 
 		var latestMsg LatestGroupMessage
 		var timeStr string
-		err = db.QueryRow(`
+		err = database.DB.QueryRow(`
             SELECT content, time
             FROM Messages
             WHERE conversation_id = ?
@@ -884,8 +886,8 @@ func handleLatestGroupMessages(response http.ResponseWriter, request *http.Reque
 	json.NewEncoder(response).Encode(latestMessages)
 }
 
-func handleProfileUsername(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandleProfileUsername(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
@@ -898,7 +900,7 @@ func handleProfileUsername(response http.ResponseWriter, request *http.Request) 
 		return
 	}
 
-	_, err = db.Exec("UPDATE Users SET username = ? WHERE id = ?", usernameRequest.Username, userId)
+	_, err = database.DB.Exec("UPDATE Users SET username = ? WHERE id = ?", usernameRequest.Username, userId)
 	if err != nil {
 		http.Error(response, "error updating username", http.StatusInternalServerError)
 		return
@@ -907,7 +909,7 @@ func handleProfileUsername(response http.ResponseWriter, request *http.Request) 
 	response.WriteHeader(http.StatusOK)
 }
 
-func handleProfilePhoto(response http.ResponseWriter, request *http.Request) {
+func HandleProfilePhoto(response http.ResponseWriter, request *http.Request) {
 	// Ensures only PUT requests are accepted for photo updates
 	if request.Method != http.MethodPut {
 		http.Error(response, "Method not allowed", http.StatusMethodNotAllowed)
@@ -915,7 +917,7 @@ func handleProfilePhoto(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// Get user ID from the authentication token
-	userId, err := getUserId(request)
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -957,7 +959,7 @@ func handleProfilePhoto(response http.ResponseWriter, request *http.Request) {
 	photoURL := fmt.Sprintf("data:%s;base64,%s", contentType, photoBase64)
 
 	// Update the user's photo in the database
-	result, err := db.Exec("UPDATE Users SET photo = ? WHERE id = ?", photoURL, userId)
+	result, err := database.DB.Exec("UPDATE Users SET photo = ? WHERE id = ?", photoURL, userId)
 	if err != nil {
 		http.Error(response, "error updating photo in database: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -974,15 +976,15 @@ func handleProfilePhoto(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 }
 
-func handleProfile(response http.ResponseWriter, request *http.Request) {
-	userId, err := getUserId(request)
+func HandleProfile(response http.ResponseWriter, request *http.Request) {
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	var profile ProfileResponse
-	err = db.QueryRow("SELECT username, photo FROM Users WHERE id = ?", userId).
+	err = database.DB.QueryRow("SELECT username, photo FROM Users WHERE id = ?", userId).
 		Scan(&profile.Username, &profile.Photo)
 	if err != nil {
 		http.Error(response, "error getting profile", http.StatusInternalServerError)
@@ -993,9 +995,9 @@ func handleProfile(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(profile)
 }
 
-func handleMessagesPhoto(response http.ResponseWriter, request *http.Request) {
+func HandleMessagesPhoto(response http.ResponseWriter, request *http.Request) {
 	// Get user ID from token
-	userId, err := getUserId(request)
+	userId, err := auth.GetUserId(request)
 	if err != nil {
 		http.Error(response, err.Error(), http.StatusUnauthorized)
 		return
@@ -1032,7 +1034,7 @@ func handleMessagesPhoto(response http.ResponseWriter, request *http.Request) {
 	photoURL := fmt.Sprintf("data:%s;base64,%s", fileHeader.Header.Get("Content-Type"), photoBase64)
 
 	// Insert into database
-	_, err = db.Exec(
+	_, err = database.DB.Exec(
 		"INSERT INTO Messages (sender_id, conversation_id, photo, content) VALUES (?, ?, ?, ?)",
 		userId, conversationId, photoURL, content,
 	)
@@ -1044,7 +1046,7 @@ func handleMessagesPhoto(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusCreated)
 }
 
-func handleGroupsGroupName(response http.ResponseWriter, request *http.Request) {
+func HandleGroupsGroupName(response http.ResponseWriter, request *http.Request) {
 	var groupNameRequest GroupNameRequest
 	if err := json.NewDecoder(request.Body).Decode(&groupNameRequest); err != nil {
 		http.Error(response, err.Error(), http.StatusBadRequest)
@@ -1052,14 +1054,14 @@ func handleGroupsGroupName(response http.ResponseWriter, request *http.Request) 
 	}
  
 	var groupId int
-	err := db.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", 
+	err := database.DB.QueryRow("SELECT group_id FROM Conversations WHERE id = ?", 
 		groupNameRequest.ConversationId).Scan(&groupId)
 	if err != nil {
 		http.Error(response, "error getting group id", http.StatusInternalServerError)
 		return
 	}
  
-	_, err = db.Exec("UPDATE `Groups` SET groupname = ? WHERE id = ?", 
+	_, err = database.DB.Exec("UPDATE `Groups` SET groupname = ? WHERE id = ?", 
 		groupNameRequest.Groupname, groupId)
 	if err != nil {
 		http.Error(response, "error updating group name", http.StatusInternalServerError)
@@ -1070,10 +1072,4 @@ func handleGroupsGroupName(response http.ResponseWriter, request *http.Request) 
 	json.NewEncoder(response).Encode(map[string]string{
 		"groupname": groupNameRequest.Groupname,
 	})
-}
-
-func handleHealth(response http.ResponseWriter, request *http.Request) {
-    response.Header().Set("Content-Type", "application/json")
-    response.WriteHeader(http.StatusOK)
-    response.Write([]byte(`{"status": "ok"}`))
 }
