@@ -3,7 +3,7 @@
         <h3>Messages:</h3>
         <small>tap to see options</small>
         <div class="messages">
-            <div class="message" v-for="message in userStore.messages" @click="options(message)">
+            <div class="message" v-for="message in userStore.messages" :key="message.id" @click="options(message)">
                 <div class="message-content">
                     <div class="sender">{{ message.senderName }}</div>
                     <div class="content">
@@ -47,7 +47,8 @@
                             <h5 style="color:black">Redirect to:</h5>
                             <div class="companions-list">
                                 <button 
-                                    v-for="companion in userStore.companions" 
+                                    v-for="companion in userStore.companions"
+									:key="companion.id" 
                                     @click="redirectMessage(message, companion)"
                                     class="companion-button"
                                 >
@@ -62,6 +63,7 @@
                             <div class="emoji-list">
                                 <button 
                                     v-for="emoji in emojis" 
+									:key="emoji"
                                     @click="addReaction(message, emoji)"
                                     class="emoji-button"
                                 >
