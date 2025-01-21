@@ -6,9 +6,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://backend:8080  # Environment variable for frontend
+      - VITE_API_URL=http://backend:8080
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -18,8 +19,11 @@ services:
       dockerfile: Dockerfile.backend
     ports:
       - "8080:8080"
-    volumes:
-      - ./service/database:/app/service/database
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - app-network
 
