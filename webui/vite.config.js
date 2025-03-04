@@ -1,28 +1,21 @@
-import { fileURLToPath, URL } from 'node:url'
+import {fileURLToPath, URL} from 'node:url'
 
-import { defineConfig } from 'vite'
+import {defineConfig} from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    vue(),
-    vueDevTools(),
-  ],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    },
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://backend:8080',
-        changeOrigin: true,
-      },
-    },
-    host: true,
-    port: 5173,
-  },
+// https://vitejs.dev/config/
+export default defineConfig(({command, mode, ssrBuild}) => {
+	const ret = {
+		plugins: [vue()],
+		resolve: {
+			alias: {
+				'@': fileURLToPath(new URL('./src', import.meta.url))
+			}
+		},
+	};
+	ret.define = {
+		// Do not modify this constant, it is used in the evaluation.
+		"__API_URL__": JSON.stringify("http://localhost:3000"),
+	};
+	return ret;
 })

@@ -7,10 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
 .DS_Store
-dist
-dist-ssr
+/dist
+/dist-ssr
 coverage
 *.local
 
@@ -27,4 +26,12 @@ coverage
 *.sln
 *.sw?
 
-*.tsbuildinfo
+node_modules/
+
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions

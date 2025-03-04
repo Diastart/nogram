@@ -1,38 +1,117 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/ardanlabs/conf"
 	_ "github.com/mattn/go-sqlite3"
-	"nogram/cmd/healthcheck"
-	"nogram/service/database"
-	"nogram/service/api"
-	"nogram/cmd/auth"
+	"github.com/sirupsen/logrus"
+	"github.com/tassdam/wasa/service/api"
+	"github.com/tassdam/wasa/service/database"
+	"github.com/tassdam/wasa/service/globaltime"
 )
 
 func main() {
-	database.InitDB()
-	defer database.DB.Close()
-	http.HandleFunc("/api/health", auth.EnableCors(healthcheck.HandleHealth))
-	http.HandleFunc("/api/profile/photo", auth.EnableCors(api.HandleProfilePhoto))
-	http.HandleFunc("/api/profile/username", auth.EnableCors(api.HandleProfileUsername))
-	http.HandleFunc("/api/profile", auth.EnableCors(api.HandleProfile))
-	http.HandleFunc("/api/session", auth.EnableCors(api.HandleSession))
-	http.HandleFunc("/api/users", auth.EnableCors(api.HandleUsers))
-	http.HandleFunc("/api/dialogs", auth.EnableCors(api.HandleDialogs))
-	http.HandleFunc("/api/companions", auth.EnableCors(api.HandleCompanions))
-	http.HandleFunc("/api/conversations", auth.EnableCors(api.HandleConversations))
-	http.HandleFunc("/api/messages", auth.EnableCors(api.HandleMessages))
-	http.HandleFunc("/api/groups", auth.EnableCors(api.HandleGroups))
-	http.HandleFunc("/api/members", auth.EnableCors(api.HandleMembers))
-	http.HandleFunc("/api/candidates", auth.EnableCors(api.HandleCandidates))
-	http.HandleFunc("/api/conversations/groups", auth.EnableCors(api.HandleConversationsGroups))
-	http.HandleFunc("/api/reactions", auth.EnableCors(api.HandleReactions))
-	http.HandleFunc("/api/latest/messages", auth.EnableCors(api.HandleLatestMessages))
-	http.HandleFunc("/api/latest/messages/groups", auth.EnableCors(api.HandleLatestGroupMessages))
-	http.HandleFunc("/api/messages/photo", auth.EnableCors(api.HandleMessagesPhoto))
-	http.HandleFunc("/api/groups/photo", auth.EnableCors(api.HandleGroupsPhoto))
-	http.HandleFunc("/api/groups/groupname", auth.EnableCors(api.HandleGroupsGroupName))
+	if err := run(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error: ", err)
+		os.Exit(1)
+	}
+}
 
-	http.ListenAndServe(":8080", nil)
+func run() error {
+	rand.Seed(globaltime.Now().UnixNano())
+	cfg, err := loadConfiguration()
+	if err != nil {
+		if errors.Is(err, conf.ErrHelpWanted) {
+			return nil
+		}
+		return err
+	}
+	logger := logrus.New()
+	logger.SetOutput(os.Stdout)
+	if cfg.Debug {
+		logger.SetLevel(logrus.DebugLevel)
+	} else {
+		logger.SetLevel(logrus.InfoLevel)
+	}
+	logger.Infof("application initializing")
+	logger.Println("initializing database support")
+	dbconn, err := sql.Open("sqlite3", cfg.DB.Filename)
+	if err != nil {
+		logger.WithError(err).Error("error opening SQLite DB")
+		return fmt.Errorf("opening SQLite: %w", err)
+	}
+	defer func() {
+		logger.Debug("database stopping")
+		_ = dbconn.Close()
+	}()
+	db, err := database.New(dbconn)
+	if err != nil {
+		logger.WithError(err).Error("error creating AppDatabase")
+		return fmt.Errorf("creating AppDatabase: %w", err)
+	}
+	logger.Info("initializing API server")
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	serverErrors := make(chan error, 1)
+	apirouter, err := api.New(api.Config{
+		Logger:   logger,
+		Database: db,
+	})
+	if err != nil {
+		logger.WithError(err).Error("error creating the API server instance")
+		return fmt.Errorf("creating the API server instance: %w", err)
+	}
+	router := apirouter.Handler()
+	router, err = registerWebUI(router)
+	if err != nil {
+		logger.WithError(err).Error("error registering web UI handler")
+		return fmt.Errorf("registering web UI handler: %w", err)
+	}
+	router = applyCORSHandler(router)
+	apiserver := http.Server{
+		Addr:              cfg.Web.APIHost,
+		Handler:           router,
+		ReadTimeout:       cfg.Web.ReadTimeout,
+		ReadHeaderTimeout: cfg.Web.ReadTimeout,
+		WriteTimeout:      cfg.Web.WriteTimeout,
+	}
+	go func() {
+		logger.Infof("API listening on %s", apiserver.Addr)
+		serverErrors <- apiserver.ListenAndServe()
+		logger.Infof("stopping API server")
+	}()
+	select {
+	case err := <-serverErrors:
+		return fmt.Errorf("server error: %w", err)
+
+	case sig := <-shutdown:
+		logger.Infof("signal %v received, start shutdown", sig)
+		err := apirouter.Close()
+		if err != nil {
+			logger.WithError(err).Warning("graceful shutdown of apirouter error")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
+		defer cancel()
+		err = apiserver.Shutdown(ctx)
+		if err != nil {
+			logger.WithError(err).Warning("error during graceful shutdown of HTTP server")
+			err = apiserver.Close()
+		}
+		switch {
+		case sig == syscall.SIGSTOP:
+			return errors.New("integrity issue caused shutdown")
+		case err != nil:
+			return fmt.Errorf("could not stop server gracefully: %w", err)
+		}
+	}
+	return nil
 }

@@ -1,26 +1,7 @@
-FROM node:20-alpine as builder
-
+FROM node:lts as builder
 WORKDIR /app
-
-# Copy package files
-COPY webui/package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy source files
-COPY webui/ .
-
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM nginx:alpine
-
-# Copy built files from builder to nginx serve directory
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 5173
-
-CMD ["nginx", "-g", "daemon off;"]
+COPY webui webui
+WORKDIR /app/webui
+RUN yarn run build-prod
+FROM nginx:stable
+COPY --from=builder /app/webui/dist /usr/share/nginx/html
