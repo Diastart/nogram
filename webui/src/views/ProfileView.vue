@@ -200,7 +200,11 @@ export default {
         this.newUserName = response.data.name;
       } catch (error) {
         console.error("Failed to update username:", error);
-        this.errormsg = "Failed to update username. Please try again.";
+        if (error.response && error.response.status === 409) {
+          this.errormsg = "This username is already taken. Please choose a different one.";
+        } else {
+          this.errormsg = "Failed to update username. Please try again.";
+        }
       }
     },
     refresh() {

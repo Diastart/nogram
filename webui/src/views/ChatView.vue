@@ -4,7 +4,25 @@
       <div class="chat-photo" v-if="conversationPhoto">
         <img :src="'data:image/jpeg;base64,' + conversationPhoto" alt="Chat Thumbnail" />
       </div>
-      <h3>{{ convName }}</h3>
+      <div class="chat-header-info">
+        <h3>{{ convName }}</h3>
+        <div v-if="conversationType === 'group' && groupMembers.length > 0" class="group-members-list">
+          <button @click="toggleMembersList" class="members-toggle">
+            {{ groupMembers.length }} members
+            <svg class="feather toggle-icon" :class="{'rotated': showMembersList}">
+              <use href="/feather-sprite-v4.29.0.svg#chevron-down"/>
+            </svg>
+          </button>
+          <div v-if="showMembersList" class="members-dropdown">
+            <ul>
+              <li v-for="member in groupMemberNames" :key="member.id" class="member-item">
+                <div class="member-avatar">{{ getInitials(member.name) }}</div>
+                <div class="member-name">{{ member.name }}</div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
@@ -99,7 +117,7 @@
             </div>
           </div>
         </div>
-        <div class="message-status" v-if="message.status && message.senderId !== userToken">
+        <div class="message-status" v-if="message.status && message.senderId === userToken">
           {{ message.status }}
         </div>
       </div>
@@ -143,7 +161,10 @@ export default {
       selectedFile: null,
       pollIntervalId: null,
       firstLoad: true,
-      replyToMessage: null
+      replyToMessage: null,
+      groupMembers: [],
+      groupMemberNames: [],
+      showMembersList: false
     };
   },
   computed: {
@@ -207,6 +228,12 @@ export default {
         this.conversationPhoto = null;
       }
       this.conversationType = response.data.type || "direct";
+      
+      // If this is a group conversation, fetch member information
+      if (this.conversationType === 'group') {
+        this.fetchGroupMembers();
+      }
+      
       this.$nextTick(() => {
         if (this.firstLoad) {
           this.forceScrollToBottom();
@@ -254,6 +281,47 @@ export default {
     formatTimestamp(timestamp) {
       const date = new Date(timestamp);
       return date.toLocaleString();
+    },
+    getInitials(name) {
+      if (!name) return '?';
+      return name.split(' ').map(part => part.charAt(0)).join('').toUpperCase().substring(0, 2);
+    },
+    toggleMembersList() {
+      this.showMembersList = !this.showMembersList;
+    },
+    async fetchGroupMembers() {
+      if (this.conversationType !== 'group') return;
+      
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(`/groups/${this.conversationId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        this.groupMembers = response.data.members || [];
+        
+        // Fetch names for each member
+        this.groupMemberNames = [];
+        for (const memberId of this.groupMembers) {
+          try {
+            const userResponse = await axios.get(`/users/${memberId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            this.groupMemberNames.push({
+              id: memberId,
+              name: userResponse.data.name || 'Unknown'
+            });
+          } catch (err) {
+            console.error(`Error fetching user ${memberId}:`, err);
+            this.groupMemberNames.push({
+              id: memberId,
+              name: 'Unknown'
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching group members:", error);
+      }
     },
     showForwardOptions(messageId) {
       this.closeAllMenus();
@@ -392,6 +460,77 @@ export default {
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+}
+.chat-header-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.group-members-list {
+  position: relative;
+  margin-top: 3px;
+}
+.members-toggle {
+  background: none;
+  border: none;
+  color: #6c757d;
+  font-size: 0.8rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.toggle-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  transition: transform 0.2s ease;
+}
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+.members-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 250px;
+  background-color: white;
+  border-radius: 5px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+  z-index: 10;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.members-dropdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.member-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+}
+.member-item:last-child {
+  border-bottom: none;
+}
+.member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #6c757d;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-right: 10px;
+}
+.member-name {
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 .chat-messages {
   display: flex;

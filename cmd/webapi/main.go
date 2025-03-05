@@ -20,8 +20,13 @@ import (
 )
 
 func main() {
+	// Initialize logger early so we can log any error
+	logger := logrus.New()
+	logger.SetOutput(os.Stdout)
+	
 	if err := run(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "error: ", err)
+		// Use logger instead of fmt.Fprintln
+		logger.WithError(err).Error("application error")
 		os.Exit(1)
 	}
 }

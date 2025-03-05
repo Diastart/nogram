@@ -36,8 +36,9 @@ func loadConfiguration() (WebAPIConfiguration, error) {
 			if err != nil {
 				return cfg, fmt.Errorf("generating config usage: %w", err)
 			}
-			fmt.Println(usage)
-			return cfg, conf.ErrHelpWanted
+			// Replace fmt.Println with return error containing the usage
+			// This will be logged by the caller
+			return cfg, fmt.Errorf("usage: %s", usage)
 		}
 		return cfg, fmt.Errorf("parsing config: %w", err)
 	}
